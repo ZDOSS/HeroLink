@@ -14,6 +14,7 @@ import {
   ListProjectDataInput,
   SearchEventsInput,
   SearchNotesInput,
+  ValidateProjectRefsInput,
   getEntity,
   getMapEvents,
   getProjectStatus,
@@ -23,6 +24,7 @@ import {
   listProjectData,
   searchEvents,
   searchNotes,
+  validateProjectRefs,
 } from "./tools/index.js";
 
 const TOOL_DEFS = [
@@ -79,6 +81,12 @@ const TOOL_DEFS = [
     description: "List plugins from plugins.js",
     inputSchema: ListPluginsInput,
     handler: listPlugins,
+  },
+  {
+    name: "validate_project_refs",
+    description: "Audit project for broken references, dangling IDs, and integrity issues",
+    inputSchema: ValidateProjectRefsInput,
+    handler: validateProjectRefs,
   },
 ] as const;
 

@@ -9,6 +9,7 @@ import { listPlugins } from "./tools/listPlugins.js";
 import { listProjectData } from "./tools/listProjectData.js";
 import { searchEvents } from "./tools/searchEvents.js";
 import { searchNotes } from "./tools/searchNotes.js";
+import { validateProjectRefs } from "./tools/validateProjectRefs.js";
 
 const program = new Command();
 
@@ -107,6 +108,15 @@ program
   .action((projectDir: string) => {
     const project = loadProject(projectDir);
     const result = listPlugins(project);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("validate <projectDir>")
+  .description("Audit project for broken references and integrity issues")
+  .action((projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = validateProjectRefs(project);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   });
 

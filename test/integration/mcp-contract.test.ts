@@ -15,6 +15,7 @@ import {
   SearchEventsInput, searchEvents,
   SearchNotesInput, searchNotes,
   ListPluginsInput, listPlugins,
+  ValidateProjectRefsInput, validateProjectRefs,
 } from "../../src/tools/index.js";
 import {
   CallToolRequestSchema,
@@ -33,6 +34,7 @@ const TOOL_DEFS = [
   { name: "search_events", inputSchema: SearchEventsInput, handler: searchEvents },
   { name: "search_notes", inputSchema: SearchNotesInput, handler: searchNotes },
   { name: "list_plugins", inputSchema: ListPluginsInput, handler: listPlugins },
+  { name: "validate_project_refs", inputSchema: ValidateProjectRefsInput, handler: validateProjectRefs },
 ];
 
 describe("MCP contract tests", () => {
@@ -81,9 +83,9 @@ describe("MCP contract tests", () => {
     await server.close();
   });
 
-  it("lists all 9 v1 tools", async () => {
+  it("lists all 10 v1+v2 tools", async () => {
     const result = await client.listTools();
-    expect(result.tools).toHaveLength(9);
+    expect(result.tools).toHaveLength(10);
     const names = result.tools.map((t) => t.name);
     expect(names).toContain("get_project_status");
     expect(names).toContain("list_project_data");
@@ -94,6 +96,7 @@ describe("MCP contract tests", () => {
     expect(names).toContain("search_events");
     expect(names).toContain("search_notes");
     expect(names).toContain("list_plugins");
+    expect(names).toContain("validate_project_refs");
   });
 
   it("get_project_status returns correct shape", async () => {

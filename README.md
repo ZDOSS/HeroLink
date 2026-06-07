@@ -36,6 +36,9 @@ npx tsx src/cli.ts notes path/to/your/project "type"
 
 # List plugins
 npx tsx src/cli.ts plugins path/to/your/project
+
+# Audit project for broken references and integrity issues
+npx tsx src/cli.ts validate path/to/your/project
 ```
 
 ### MCP Server (for AI clients)
@@ -45,7 +48,7 @@ npx tsx src/cli.ts plugins path/to/your/project
 RPGMV_PROJECT_DIR=path/to/your/project npx tsx src/index.ts
 ```
 
-The MCP server exposes 9 read-only tools: `get_project_status`, `list_project_data`, `list_entities`, `get_entity`, `list_maps`, `get_map_events`, `search_events`, `search_notes`, `list_plugins`.
+The MCP server exposes 10 tools: `get_project_status`, `list_project_data`, `list_entities`, `get_entity`, `list_maps`, `get_map_events`, `search_events`, `search_notes`, `list_plugins`, `validate_project_refs`.
 
 ## Development
 
@@ -62,7 +65,7 @@ npm run generate-fixtures  # regenerate test fixtures
 | Version | Capability | Status |
 |---------|-----------|--------|
 | v1 | Read & Summarize | **Done** |
-| v2 | Audit & Validate | Next |
+| v2 | Audit & Validate | **Done** |
 | v3 | Safe Database Mutation | Planned |
 | v4 | Events, Maps & Plugins | Planned |
 | v5 | In-Engine Integration | Planned |

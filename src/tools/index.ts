@@ -11,3 +11,8 @@ export { GetMapEventsInput, GetMapEventsOutput, getMapEvents } from "./getMapEve
 export { SearchEventsInput, SearchEventsOutput, searchEvents } from "./searchEvents.js";
 export { SearchNotesInput, SearchNotesOutput, searchNotes } from "./searchNotes.js";
 export { ListPluginsInput, ListPluginsOutput, listPlugins } from "./listPlugins.js";
+export {
+  ValidateProjectRefsInput,
+  ValidateProjectRefsOutput,
+  validateProjectRefs,
+} from "./validateProjectRefs.js";
