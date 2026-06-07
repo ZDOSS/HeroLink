@@ -419,4 +419,100 @@ describe("mutation safety", () => {
       expect(itemC.id).toBe(beforeMaxId + 3);
     });
   });
+
+  it("multiple applies work in same session without reload", async () => {
+    await withTempProject("sample-project", async (projectDir) => {
+      const project = loadProject(projectDir);
+      const itemsPath = join(projectDir, "data", "Items.json");
+      const skillsPath = join(projectDir, "data", "Skills.json");
+
+      // First apply: add an item
+      project.staging.addCreate("Item", {
+        name: "Potion A",
+        iconIndex: 0,
+        description: "First potion",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 100,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "100", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      const result1 = await applyPatch(project, project.staging);
+      expect(result1.filesWritten).toContain(itemsPath);
+
+      // Second apply: add a skill (using SAME project instance, no reload)
+      project.staging.addCreate("Skill", {
+        name: "Fire",
+        iconIndex: 0,
+        description: "Fire spell",
+        stypeId: 1,
+        mpCost: 10,
+        tpCost: 0,
+        scope: 1,
+        occasion: 1,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 1,
+        animationId: 0,
+        message1: "casts Fire!",
+        message2: "",
+        requiredWtypeId1: 0,
+        requiredWtypeId2: 0,
+        damage: { type: 1, elementId: 1, formula: "a.mat * 4", variance: 20, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      // This should NOT throw StaleProjectError
+      const result2 = await applyPatch(project, project.staging);
+      expect(result2.filesWritten).toContain(skillsPath);
+
+      // Third apply: add another item (still same session)
+      project.staging.addCreate("Item", {
+        name: "Potion B",
+        iconIndex: 0,
+        description: "Second potion",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 200,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "200", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      const result3 = await applyPatch(project, project.staging);
+      expect(result3.filesWritten).toContain(itemsPath);
+
+      // Verify all changes were applied
+      const finalItems = JSON.parse(readFileSync(itemsPath, "utf-8"));
+      const finalSkills = JSON.parse(readFileSync(skillsPath, "utf-8"));
+
+      const nonNullItems = finalItems.filter((i: unknown) => i !== null);
+      const nonNullSkills = finalSkills.filter((s: unknown) => s !== null);
+
+      expect(nonNullItems.find((i: { name: string }) => i.name === "Potion A")).toBeDefined();
+      expect(nonNullItems.find((i: { name: string }) => i.name === "Potion B")).toBeDefined();
+      expect(nonNullSkills.find((s: { name: string }) => s.name === "Fire")).toBeDefined();
+    });
+  });
 });
