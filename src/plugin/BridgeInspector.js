@@ -229,7 +229,10 @@
       // Append new responses to existing ones
       var allResponses = existingResponses.concat(newResponses);
       writeJson("responses.json", allResponses);
-      // Clear commands after processing
+    }
+
+    // Always clear commands after processing, even if all were malformed
+    if (commands.length > 0) {
       writeJson("commands.json", []);
     }
   }
@@ -404,9 +407,9 @@
   // Update Loop (Poll for Commands)
   // ==========================================================================
 
-  var _Scene_Map_update = Scene_Map.prototype.update;
-  Scene_Map.prototype.update = function () {
-    _Scene_Map_update.call(this);
+  var _Scene_Base_update = Scene_Base.prototype.update;
+  Scene_Base.prototype.update = function () {
+    _Scene_Base_update.call(this);
 
     // Poll for commands at specified interval (guard against pollInterval=0)
     if (pollInterval > 0 && Graphics.frameCount % pollInterval === 0) {
