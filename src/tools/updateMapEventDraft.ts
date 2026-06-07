@@ -90,6 +90,13 @@ export function updateMapEventDraft(
   if (input.y !== undefined) patch.y = input.y;
   if (input.note !== undefined) patch.note = input.note;
 
+  // Validate that page and pageIndex are provided together
+  if ((input.page === undefined) !== (input.pageIndex === undefined)) {
+    throw new Error(
+      `"page" and "pageIndex" must be provided together, but only ${input.page !== undefined ? '"page"' : '"pageIndex"'} was given`,
+    );
+  }
+
   if (input.page !== undefined && input.pageIndex !== undefined) {
     const pages = [...(event.pages as unknown as Record<string, unknown>[])];
     if (input.pageIndex >= pages.length) {

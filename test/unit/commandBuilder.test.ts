@@ -110,7 +110,7 @@ describe("command builder", () => {
       ]);
     });
 
-    it("compiles conditionalBranch switch to code 400", () => {
+    it("compiles conditionalBranch switch to code 111", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "conditionalBranch",
         conditionType: "switch",
@@ -123,7 +123,7 @@ describe("command builder", () => {
       ]);
     });
 
-    it("compiles conditionalBranch variable to code 400", () => {
+    it("compiles conditionalBranch variable to code 111", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "conditionalBranch",
         conditionType: "variable",
@@ -137,7 +137,7 @@ describe("command builder", () => {
       ]);
     });
 
-    it("compiles conditionalBranch selfSwitch to code 400", () => {
+    it("compiles conditionalBranch selfSwitch to code 111", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "conditionalBranch",
         conditionType: "selfSwitch",
@@ -290,7 +290,7 @@ describe("command builder", () => {
       expect(() => compileCommand(cmd)).toThrow("actorId");
     });
 
-    it("compiles conditionalBranch actor to code 400", () => {
+    it("compiles conditionalBranch actor to code 111", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "conditionalBranch",
         conditionType: "actor",
@@ -304,7 +304,7 @@ describe("command builder", () => {
       ]);
     });
 
-    it("compiles conditionalBranch switch OFF to code 400 with value 1", () => {
+    it("compiles conditionalBranch switch OFF to code 111 with value 1", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "conditionalBranch",
         conditionType: "switch",
@@ -317,7 +317,7 @@ describe("command builder", () => {
       ]);
     });
 
-    it("compiles conditionalBranch selfSwitch OFF to code 400 with value 1", () => {
+    it("compiles conditionalBranch selfSwitch OFF to code 111 with value 1", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "conditionalBranch",
         conditionType: "selfSwitch",

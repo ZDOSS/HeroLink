@@ -11,6 +11,7 @@ import type { EntityType } from "../model/normalized.js";
 import { reloadModel } from "../model/normalized.js";
 import { Backup } from "./backup.js";
 import { buildWritePlans, computeNextIds } from "./patch.js";
+import { getRelPath } from "./paths.js";
 import type { Staging } from "./staging.js";
 
 export interface ApplyResult {
@@ -130,11 +131,4 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
     }
     throw err;
   }
-}
-
-function getRelPath(filePath: string, projectDir: string): string {
-  return filePath
-    .replace(projectDir, "")
-    .replace(/^[\\/]/, "")
-    .replace(/\\/g, "/");
 }

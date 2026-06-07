@@ -4,6 +4,7 @@ import writeFileAtomic from "write-file-atomic";
 import type { Project } from "../io/project.js";
 import { reloadModel } from "../model/normalized.js";
 import { Backup } from "./backup.js";
+import { getRelPath } from "./paths.js";
 
 export interface RollbackResult {
   restoredTransactionId: string;
@@ -49,11 +50,4 @@ export function rollbackLastPatch(project: Project): RollbackResult {
     restoredTransactionId: lastTx.id,
     filesRestored,
   };
-}
-
-function getRelPath(filePath: string, projectDir: string): string {
-  return filePath
-    .replace(projectDir, "")
-    .replace(/^[\\/]/, "")
-    .replace(/\\/g, "/");
 }
