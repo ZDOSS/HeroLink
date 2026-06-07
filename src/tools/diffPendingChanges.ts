@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Project } from "../io/project.js";
 import type { EntityType } from "../model/normalized.js";
-import { buildPatches } from "../mutate/patch.js";
+import { buildPatches, computeNextIds } from "../mutate/patch.js";
 import type { Staging } from "../mutate/staging.js";
 
 export const DiffPendingChangesInput = z.object({});
@@ -22,7 +22,16 @@ export function diffPendingChanges(project: Project, staging: Staging) {
     return { patches: [], humanSummary: "No pending changes" };
   }
 
-  const nextIds = computeNextIds(project, drafts);
+  const maxIds = new Map<EntityType, number>();
+  for (const draft of drafts) {
+    if (draft.type !== "create") continue;
+    if (!maxIds.has(draft.entityType)) {
+      const entities = project.model.listEntities(draft.entityType);
+      const maxId = entities.reduce((max, e) => Math.max(max, e.id), 0);
+      maxIds.set(draft.entityType, maxId);
+    }
+  }
+  const nextIds = computeNextIds(drafts, maxIds);
   const filePatches = buildPatches(drafts, nextIds);
 
   const creates = drafts.filter((d) => d.type === "create").length;
@@ -36,29 +45,4 @@ export function diffPendingChanges(project: Project, staging: Staging) {
     })),
     humanSummary,
   };
-}
-
-function computeNextIds(
-  project: Project,
-  drafts: import("../mutate/staging.js").Draft[],
-): Map<EntityType, number> {
-  const nextIds = new Map<EntityType, number>();
-
-  for (const draft of drafts) {
-    if (draft.type !== "create") continue;
-
-    if (!nextIds.has(draft.entityType)) {
-      const entities = project.model.listEntities(draft.entityType);
-      const maxId = entities.reduce((max, e) => Math.max(max, e.id), 0);
-      nextIds.set(draft.entityType, maxId + 1);
-    } else {
-      const currentId = nextIds.get(draft.entityType);
-      if (currentId === undefined) {
-        throw new Error(`No next ID found for entity type ${draft.entityType}`);
-      }
-      nextIds.set(draft.entityType, currentId + 1);
-    }
-  }
-
-  return nextIds;
 }

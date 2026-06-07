@@ -16,10 +16,7 @@ export const ApplyPatchOutput = z.object({
 export async function applyPatchTool(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof ApplyPatchInput>,
+  _input: z.infer<typeof ApplyPatchInput>,
 ) {
-  if (!input.confirm) {
-    throw new Error("Must pass confirm: true to apply changes");
-  }
   return applyPatch(project, staging);
 }

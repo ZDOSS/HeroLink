@@ -28,7 +28,11 @@ export function createEntityDraft(
   const changeId = staging.addCreate(input.type as EntityType, input.fields);
 
   const entities = project.model.listEntities(input.type as EntityType);
-  const nextId = entities.reduce((max, e) => Math.max(max, e.id), 0) + 1;
+  const maxPersistedId = entities.reduce((max, e) => Math.max(max, e.id), 0);
+  const pendingCreates = staging
+    .list()
+    .filter((d) => d.type === "create" && d.entityType === input.type).length;
+  const nextId = maxPersistedId + pendingCreates;
 
   return {
     changeId,

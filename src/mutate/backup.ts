@@ -1,6 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type fjp from "fast-json-patch";
 import { hashContent } from "../model/hash.js";
 
 export interface TransactionRecord {
@@ -8,7 +7,6 @@ export interface TransactionRecord {
   timestamp: string;
   files: string[];
   preHashes: Record<string, string>;
-  inversePatches: Record<string, fjp.Operation[]>;
 }
 
 export class Backup {
@@ -42,14 +40,12 @@ export class Backup {
     transactionId: string,
     files: string[],
     preHashes: Record<string, string>,
-    inversePatches: Record<string, fjp.Operation[]>,
   ): void {
     const record: TransactionRecord = {
       id: transactionId,
       timestamp: new Date().toISOString(),
       files,
       preHashes,
-      inversePatches,
     };
     writeFileSync(this.journalPath, `${JSON.stringify(record)}\n`, { flag: "a" });
   }
@@ -59,15 +55,28 @@ export class Backup {
       return [];
     }
     const content = readFileSync(this.journalPath, "utf-8");
-    return content
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => JSON.parse(line) as TransactionRecord);
+    const transactions: TransactionRecord[] = [];
+    for (const line of content.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        transactions.push(JSON.parse(line) as TransactionRecord);
+      } catch {
+        // Skip malformed lines to prevent journal corruption from breaking operations
+      }
+    }
+    return transactions;
   }
 
   getLastTransaction(): TransactionRecord | undefined {
     const transactions = this.listTransactions();
     return transactions[transactions.length - 1];
+  }
+
+  removeTransaction(transactionId: string): void {
+    const transactions = this.listTransactions();
+    const filtered = transactions.filter((t) => t.id !== transactionId);
+    const content = filtered.map((t) => JSON.stringify(t)).join("\n");
+    writeFileSync(this.journalPath, content ? `${content}\n` : "", "utf-8");
   }
 
   getBackupDir(transactionId: string): string {

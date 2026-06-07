@@ -26,6 +26,30 @@ export function entityFile(entityType: EntityType): string {
   return ENTITY_FILE_MAP[entityType];
 }
 
+export function computeNextIds(
+  drafts: Draft[],
+  maxIds: Map<EntityType, number>,
+): Map<EntityType, number> {
+  const nextIds = new Map<EntityType, number>();
+
+  for (const draft of drafts) {
+    if (draft.type !== "create") continue;
+
+    if (!nextIds.has(draft.entityType)) {
+      const maxId = maxIds.get(draft.entityType) ?? 0;
+      nextIds.set(draft.entityType, maxId + 1);
+    } else {
+      const currentId = nextIds.get(draft.entityType);
+      if (currentId === undefined) {
+        throw new Error(`No next ID found for entity type ${draft.entityType}`);
+      }
+      nextIds.set(draft.entityType, currentId + 1);
+    }
+  }
+
+  return nextIds;
+}
+
 export function buildPatches(drafts: Draft[], nextIds: Map<EntityType, number>): FilePatch[] {
   const fileOps = new Map<string, fjp.Operation[]>();
 

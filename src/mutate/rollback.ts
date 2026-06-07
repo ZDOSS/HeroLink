@@ -27,6 +27,8 @@ export function rollbackLastPatch(projectDir: string): RollbackResult {
     filesRestored.push(file);
   }
 
+  backup.removeTransaction(lastTx.id);
+
   return {
     restoredTransactionId: lastTx.id,
     filesRestored,

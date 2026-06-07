@@ -8,7 +8,7 @@ import type { Project } from "../io/project.js";
 import { checkStaleness } from "../model/hash.js";
 import type { EntityType } from "../model/normalized.js";
 import { Backup } from "./backup.js";
-import { buildPatches } from "./patch.js";
+import { buildPatches, computeNextIds } from "./patch.js";
 import type { Staging } from "./staging.js";
 
 export interface ApplyResult {
@@ -30,7 +30,16 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
     throw new StaleProjectError(staleFiles);
   }
 
-  const nextIds = computeNextIds(project, drafts);
+  const maxIds = new Map<EntityType, number>();
+  for (const draft of drafts) {
+    if (draft.type !== "create") continue;
+    if (!maxIds.has(draft.entityType)) {
+      const entities = project.model.listEntities(draft.entityType);
+      const maxId = entities.reduce((max, e) => Math.max(max, e.id), 0);
+      maxIds.set(draft.entityType, maxId);
+    }
+  }
+  const nextIds = computeNextIds(drafts, maxIds);
   const filePatches = buildPatches(drafts, nextIds);
 
   const transactionId = `t-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -39,7 +48,6 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
   const filesToWrite = filePatches.map((fp) => join(project.projectDir, "data", fp.file));
   const preHashes = backup.createBackup(transactionId, filesToWrite);
 
-  const inversePatches: Record<string, import("fast-json-patch").Operation[]> = {};
   const writtenFiles: string[] = [];
 
   try {
@@ -50,13 +58,12 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
 
       const clone = fjp.deepClone(data);
       fjp.applyPatch(clone, fp.ops, undefined, true, false);
-      inversePatches[fp.file] = invertOps(fp.ops, data);
 
       writeFileAtomic.sync(filePath, JSON.stringify(clone), "utf-8");
       writtenFiles.push(filePath);
     }
 
-    backup.recordTransaction(transactionId, filesToWrite, preHashes, inversePatches);
+    backup.recordTransaction(transactionId, filesToWrite, preHashes);
     staging.clear();
 
     return {
@@ -77,59 +84,4 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
     }
     throw err;
   }
-}
-
-function computeNextIds(
-  project: Project,
-  drafts: import("./staging.js").Draft[],
-): Map<EntityType, number> {
-  const nextIds = new Map<EntityType, number>();
-
-  for (const draft of drafts) {
-    if (draft.type !== "create") continue;
-
-    if (!nextIds.has(draft.entityType)) {
-      const entities = project.model.listEntities(draft.entityType);
-      const maxId = entities.reduce((max, e) => Math.max(max, e.id), 0);
-      nextIds.set(draft.entityType, maxId + 1);
-    } else {
-      const currentId = nextIds.get(draft.entityType);
-      if (currentId === undefined) {
-        throw new Error(`No next ID found for entity type ${draft.entityType}`);
-      }
-      nextIds.set(draft.entityType, currentId + 1);
-    }
-  }
-
-  return nextIds;
-}
-
-function invertOps(
-  ops: import("fast-json-patch").Operation[],
-  original: unknown,
-): import("fast-json-patch").Operation[] {
-  const inverted: import("fast-json-patch").Operation[] = [];
-
-  for (let i = ops.length - 1; i >= 0; i--) {
-    const op = ops[i];
-    if (op.op === "add") {
-      inverted.push({ op: "remove", path: op.path });
-    } else if (op.op === "remove") {
-      const pathParts = op.path.split("/").filter(Boolean);
-      let value = original;
-      for (const part of pathParts) {
-        value = (value as Record<string, unknown>)[part];
-      }
-      inverted.push({ op: "add", path: op.path, value });
-    } else if (op.op === "replace") {
-      const pathParts = op.path.split("/").filter(Boolean);
-      let value = original;
-      for (const part of pathParts) {
-        value = (value as Record<string, unknown>)[part];
-      }
-      inverted.push({ op: "replace", path: op.path, value });
-    }
-  }
-
-  return inverted;
 }
