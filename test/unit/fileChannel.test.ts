@@ -167,7 +167,7 @@ describe("FileChannel", () => {
 
       expect(JSON.parse(readFileSync(join(bridgeDir, "commands.json"), "utf-8"))).toEqual([]);
       expect(JSON.parse(readFileSync(join(bridgeDir, "responses.json"), "utf-8"))).toEqual([]);
-      expect(readFileSync(join(bridgeDir, "runtime-state.json"), "utf-8")).toBe("[]");
+      expect(readFileSync(join(bridgeDir, "runtime-state.json"), "utf-8")).toBe("null");
     });
   });
 });

@@ -66,7 +66,7 @@
  *
  */
 
-(() => {
+(function() {
   // ==========================================================================
   // Configuration
   // ==========================================================================
@@ -161,14 +161,16 @@
     // Party info
     if ($gameParty && $gameParty.members()) {
       state.party = {
-        members: $gameParty.members().map((actor) => ({
-          id: actor.actorId(),
-          name: actor.name(),
-          level: actor.level,
-          hp: actor.hp,
-          mp: actor.mp,
-          tp: actor.tp,
-        })),
+        members: $gameParty.members().map(function(actor) {
+          return {
+            id: actor.actorId(),
+            name: actor.name(),
+            level: actor.level,
+            hp: actor.hp,
+            mp: actor.mp,
+            tp: actor.tp,
+          };
+        }),
         gold: $gameParty.gold(),
       };
     }
@@ -201,14 +203,20 @@
     var commands = readJson("commands.json");
     if (!commands || !Array.isArray(commands)) return;
 
-    var responses = [];
+    // Read existing responses to append, not overwrite
+    var existingResponses = readJson("responses.json");
+    if (!existingResponses || !Array.isArray(existingResponses)) {
+      existingResponses = [];
+    }
+
+    var newResponses = [];
 
     for (var i = 0; i < commands.length; i++) {
       var cmd = commands[i];
       if (!cmd || !cmd.command) continue;
 
       var response = executeCommand(cmd);
-      responses.push({
+      newResponses.push({
         id: cmd.id || null,
         command: cmd.command,
         success: response.success,
@@ -217,8 +225,10 @@
       });
     }
 
-    if (responses.length > 0) {
-      writeJson("responses.json", responses);
+    if (newResponses.length > 0) {
+      // Append new responses to existing ones
+      var allResponses = existingResponses.concat(newResponses);
+      writeJson("responses.json", allResponses);
       // Clear commands after processing
       writeJson("commands.json", []);
     }
@@ -398,8 +408,8 @@
   Scene_Map.prototype.update = function () {
     _Scene_Map_update.call(this);
 
-    // Poll for commands at specified interval
-    if (Graphics.frameCount % pollInterval === 0) {
+    // Poll for commands at specified interval (guard against pollInterval=0)
+    if (pollInterval > 0 && Graphics.frameCount % pollInterval === 0) {
       processCommands();
     }
   };

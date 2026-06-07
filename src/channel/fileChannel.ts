@@ -150,6 +150,7 @@ export class FileChannel {
   /**
    * Wait for a specific command response by ID.
    * Polls responses.json until the response appears or timeout.
+   * Removes the matched response from the file after finding it.
    */
   async waitForResponse(commandId: string, timeoutMs = 5000): Promise<BridgeResponse | null> {
     const startTime = Date.now();
@@ -157,10 +158,17 @@ export class FileChannel {
 
     while (Date.now() - startTime < timeoutMs) {
       const responses = this.readResponses();
-      const response = responses.find((r) => r.id === commandId);
-      if (response) {
-        return response;
+      const responseIndex = responses.findIndex((r) => r.id === commandId);
+
+      if (responseIndex !== -1) {
+        // Remove the matched response from the file
+        const remainingResponses = responses.filter((_, i) => i !== responseIndex);
+        const filepath = join(this.channelDir, "responses.json");
+        writeFileAtomic.sync(filepath, JSON.stringify(remainingResponses, null, 2), "utf-8");
+
+        return responses[responseIndex];
       }
+
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 
@@ -176,7 +184,10 @@ export class FileChannel {
     for (const file of files) {
       const filepath = join(this.channelDir, file);
       if (existsSync(filepath)) {
-        writeFileSync(filepath, "[]", "utf-8");
+        // runtime-state.json holds an object, so clear with "null"
+        // commands.json and responses.json hold arrays, so clear with "[]"
+        const content = file === "runtime-state.json" ? "null" : "[]";
+        writeFileSync(filepath, content, "utf-8");
       }
     }
   }
