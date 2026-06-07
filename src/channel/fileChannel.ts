@@ -1,0 +1,199 @@
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import writeFileAtomic from "write-file-atomic";
+
+export interface BridgeCommand {
+  id: string;
+  command: string;
+  args?: Record<string, unknown>;
+}
+
+export interface BridgeResponse {
+  id: string | null;
+  command: string;
+  success: boolean;
+  result: unknown;
+  error: string | null;
+}
+
+export interface RuntimeState {
+  timestamp: number;
+  game: {
+    title: string;
+    versionId: number;
+  } | null;
+  party: {
+    members: Array<{
+      id: number;
+      name: string;
+      level: number;
+      hp: number;
+      mp: number;
+      tp: number;
+    }>;
+    gold: number;
+  } | null;
+  map: {
+    mapId: number;
+    displayName: string;
+    playerX: number | null;
+    playerY: number | null;
+    playerDirection: number | null;
+  } | null;
+  switches: boolean[] | null;
+  variables: number[] | null;
+}
+
+export class FileChannel {
+  private readonly channelDir: string;
+
+  constructor(projectDir: string, channelSubdir = ".bridge") {
+    this.channelDir = join(projectDir, channelSubdir);
+  }
+
+  /**
+   * Ensure the channel directory exists.
+   */
+  ensureDirectory(): void {
+    if (!existsSync(this.channelDir)) {
+      mkdirSync(this.channelDir, { recursive: true });
+    }
+  }
+
+  /**
+   * Read the current runtime state written by the plugin.
+   */
+  readRuntimeState(): RuntimeState | null {
+    const filepath = join(this.channelDir, "runtime-state.json");
+    if (!existsSync(filepath)) {
+      return null;
+    }
+    try {
+      const content = readFileSync(filepath, "utf-8");
+      return JSON.parse(content) as RuntimeState;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Send a command to the plugin by writing to commands.json.
+   * Returns the command ID for tracking responses.
+   */
+  sendCommand(command: string, args?: Record<string, unknown>): string {
+    this.ensureDirectory();
+
+    const id = randomUUID();
+    const cmd: BridgeCommand = { id, command, args };
+
+    // Read existing commands
+    const commands = this.readCommands();
+    commands.push(cmd);
+
+    // Write back atomically
+    const filepath = join(this.channelDir, "commands.json");
+    writeFileAtomic.sync(filepath, JSON.stringify(commands, null, 2), "utf-8");
+
+    return id;
+  }
+
+  /**
+   * Send multiple commands at once.
+   */
+  sendCommands(commands: Array<{ command: string; args?: Record<string, unknown> }>): string[] {
+    this.ensureDirectory();
+
+    const ids: string[] = [];
+    const existingCommands = this.readCommands();
+
+    for (const cmd of commands) {
+      const id = randomUUID();
+      existingCommands.push({ id, command: cmd.command, args: cmd.args });
+      ids.push(id);
+    }
+
+    const filepath = join(this.channelDir, "commands.json");
+    writeFileAtomic.sync(filepath, JSON.stringify(existingCommands, null, 2), "utf-8");
+
+    return ids;
+  }
+
+  /**
+   * Read responses from the plugin.
+   */
+  readResponses(): BridgeResponse[] {
+    const filepath = join(this.channelDir, "responses.json");
+    if (!existsSync(filepath)) {
+      return [];
+    }
+    try {
+      const content = readFileSync(filepath, "utf-8");
+      return JSON.parse(content) as BridgeResponse[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Read and clear responses (atomic read-then-delete).
+   */
+  consumeResponses(): BridgeResponse[] {
+    const responses = this.readResponses();
+    if (responses.length > 0) {
+      const filepath = join(this.channelDir, "responses.json");
+      writeFileAtomic.sync(filepath, "[]", "utf-8");
+    }
+    return responses;
+  }
+
+  /**
+   * Wait for a specific command response by ID.
+   * Polls responses.json until the response appears or timeout.
+   */
+  async waitForResponse(commandId: string, timeoutMs = 5000): Promise<BridgeResponse | null> {
+    const startTime = Date.now();
+    const pollInterval = 100; // ms
+
+    while (Date.now() - startTime < timeoutMs) {
+      const responses = this.readResponses();
+      const response = responses.find((r) => r.id === commandId);
+      if (response) {
+        return response;
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    return null;
+  }
+
+  /**
+   * Clear all channel files (useful for testing).
+   */
+  clear(): void {
+    this.ensureDirectory();
+    const files = ["commands.json", "responses.json", "runtime-state.json"];
+    for (const file of files) {
+      const filepath = join(this.channelDir, file);
+      if (existsSync(filepath)) {
+        writeFileSync(filepath, "[]", "utf-8");
+      }
+    }
+  }
+
+  /**
+   * Read commands from commands.json (internal helper).
+   */
+  private readCommands(): BridgeCommand[] {
+    const filepath = join(this.channelDir, "commands.json");
+    if (!existsSync(filepath)) {
+      return [];
+    }
+    try {
+      const content = readFileSync(filepath, "utf-8");
+      return JSON.parse(content) as BridgeCommand[];
+    } catch {
+      return [];
+    }
+  }
+}
