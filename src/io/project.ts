@@ -5,11 +5,13 @@ import { MvAdapter } from "../engine/mv.js";
 import { ProjectNotFoundError } from "../errors.js";
 import { logger } from "../log.js";
 import { type NormalizedModel, buildNormalizedModel } from "../model/normalized.js";
+import { Staging } from "../mutate/staging.js";
 
 export interface Project {
   projectDir: string;
   adapter: EngineAdapter;
   model: NormalizedModel;
+  staging: Staging;
 }
 
 export function findProjectDir(startDir: string): string {
@@ -40,10 +42,12 @@ export function loadProject(projectDir: string, adapter?: EngineAdapter): Projec
   }
 
   const model = buildNormalizedModel(projectDir, engineAdapter);
+  const staging = new Staging(projectDir);
 
   return {
     projectDir,
     adapter: engineAdapter,
     model,
+    staging,
   };
 }
