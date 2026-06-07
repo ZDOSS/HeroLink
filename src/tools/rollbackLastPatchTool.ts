@@ -10,5 +10,5 @@ export const RollbackLastPatchOutput = z.object({
 });
 
 export function rollbackLastPatchTool(project: Project) {
-  return rollbackLastPatch(project.projectDir);
+  return rollbackLastPatch(project);
 }

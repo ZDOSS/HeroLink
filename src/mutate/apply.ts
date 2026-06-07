@@ -5,8 +5,9 @@ import fjp from "fast-json-patch";
 import writeFileAtomic from "write-file-atomic";
 import { StaleProjectError, ValidationError } from "../errors.js";
 import type { Project } from "../io/project.js";
-import { checkStaleness, snapshotFile } from "../model/hash.js";
+import { checkStaleness } from "../model/hash.js";
 import type { EntityType } from "../model/normalized.js";
+import { reloadModel } from "../model/normalized.js";
 import { Backup } from "./backup.js";
 import { buildPatches, computeNextIds } from "./patch.js";
 import type { Staging } from "./staging.js";
@@ -63,10 +64,8 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
       writtenFiles.push(filePath);
     }
 
-    // Refresh file snapshots after successful writes to prevent false staleness on next apply
-    for (const filePath of writtenFiles) {
-      project.model.fileSnapshots.set(filePath, snapshotFile(filePath));
-    }
+    // Reload model to refresh both file snapshots and entity data for next apply
+    reloadModel(project.model);
 
     backup.recordTransaction(transactionId, filesToWrite, preHashes);
     staging.clear();

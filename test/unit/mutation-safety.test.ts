@@ -44,7 +44,7 @@ describe("mutation safety", () => {
       const result = await applyPatch(project, project.staging);
       expect(result.filesWritten).toContain(itemsPath);
 
-      const rollbackResult = rollbackLastPatch(projectDir);
+      const rollbackResult = rollbackLastPatch(project);
       expect(rollbackResult.restoredTransactionId).toBe(result.transactionId);
       expect(rollbackResult.filesRestored).toContain(itemsPath);
 
@@ -227,9 +227,8 @@ describe("mutation safety", () => {
       const afterT1ItemsHash = hashFile(itemsPath);
       expect(afterT1ItemsHash).not.toBe(originalItemsHash);
 
-      // Transaction 2: Add a skill (need fresh project for staging)
-      const project2 = loadProject(projectDir);
-      project2.staging.addCreate("Skill", {
+      // Transaction 2: Add a skill (same project instance, staging was cleared)
+      project.staging.addCreate("Skill", {
         name: "Fire",
         iconIndex: 0,
         description: "Fire spell",
@@ -253,23 +252,23 @@ describe("mutation safety", () => {
         note: "",
       });
 
-      const result2 = await applyPatch(project2, project2.staging);
+      const result2 = await applyPatch(project, project.staging);
       const afterT2SkillsHash = hashFile(skillsPath);
       expect(afterT2SkillsHash).not.toBe(originalSkillsHash);
 
       // Rollback T2 first
-      const rollback2 = rollbackLastPatch(projectDir);
+      const rollback2 = rollbackLastPatch(project);
       expect(rollback2.restoredTransactionId).toBe(result2.transactionId);
       expect(hashFile(skillsPath)).toBe(originalSkillsHash);
       expect(hashFile(itemsPath)).toBe(afterT1ItemsHash); // T1 still applied
 
       // Rollback T1
-      const rollback1 = rollbackLastPatch(projectDir);
+      const rollback1 = rollbackLastPatch(project);
       expect(rollback1.restoredTransactionId).toBe(result1.transactionId);
       expect(hashFile(itemsPath)).toBe(originalItemsHash);
 
       // No more transactions to rollback
-      expect(() => rollbackLastPatch(projectDir)).toThrow("No transactions to rollback");
+      expect(() => rollbackLastPatch(project)).toThrow("No transactions to rollback");
     });
   });
 
@@ -510,9 +509,92 @@ describe("mutation safety", () => {
       const nonNullItems = finalItems.filter((i: unknown) => i !== null);
       const nonNullSkills = finalSkills.filter((s: unknown) => s !== null);
 
-      expect(nonNullItems.find((i: { name: string }) => i.name === "Potion A")).toBeDefined();
-      expect(nonNullItems.find((i: { name: string }) => i.name === "Potion B")).toBeDefined();
-      expect(nonNullSkills.find((s: { name: string }) => s.name === "Fire")).toBeDefined();
+      const potionA = nonNullItems.find((i: { name: string }) => i.name === "Potion A");
+      const potionB = nonNullItems.find((i: { name: string }) => i.name === "Potion B");
+      const fire = nonNullSkills.find((s: { name: string }) => s.name === "Fire");
+
+      expect(potionA).toBeDefined();
+      expect(potionB).toBeDefined();
+      expect(fire).toBeDefined();
+
+      // Verify IDs are unique (Potion A and Potion B should have different IDs)
+      expect(potionA.id).not.toBe(potionB.id);
+
+      // Verify IDs are sequential
+      const itemIds = nonNullItems.map((i: { id: number }) => i.id).sort((a: number, b: number) => a - b);
+      for (let i = 1; i < itemIds.length; i++) {
+        expect(itemIds[i]).toBe(itemIds[i - 1] + 1);
+      }
+    });
+  });
+
+  it("apply after rollback works in same session", async () => {
+    await withTempProject("sample-project", async (projectDir) => {
+      const project = loadProject(projectDir);
+      const itemsPath = join(projectDir, "data", "Items.json");
+
+      const originalHash = hashFile(itemsPath);
+
+      // First apply: add an item
+      project.staging.addCreate("Item", {
+        name: "Potion A",
+        iconIndex: 0,
+        description: "First potion",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 100,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "100", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      const result1 = await applyPatch(project, project.staging);
+      expect(hashFile(itemsPath)).not.toBe(originalHash);
+
+      // Rollback
+      const rollbackResult = rollbackLastPatch(project);
+      expect(rollbackResult.restoredTransactionId).toBe(result1.transactionId);
+      expect(hashFile(itemsPath)).toBe(originalHash);
+
+      // Second apply: add a different item (should work, not throw StaleProjectError)
+      project.staging.addCreate("Item", {
+        name: "Potion B",
+        iconIndex: 0,
+        description: "Second potion",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 200,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "200", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      const result2 = await applyPatch(project, project.staging);
+      expect(result2.transactionId).not.toBe(result1.transactionId);
+      expect(hashFile(itemsPath)).not.toBe(originalHash);
+
+      // Verify the second item was added
+      const finalItems = JSON.parse(readFileSync(itemsPath, "utf-8"));
+      const nonNullItems = finalItems.filter((i: unknown) => i !== null);
+      const potionB = nonNullItems.find((i: { name: string }) => i.name === "Potion B");
+      expect(potionB).toBeDefined();
+      expect(potionB.id).toBe(nonNullItems.length); // Should be the last item
     });
   });
 });

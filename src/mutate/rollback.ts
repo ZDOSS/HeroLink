@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
+import type { Project } from "../io/project.js";
+import { reloadModel } from "../model/normalized.js";
 import { Backup } from "./backup.js";
 
 export interface RollbackResult {
@@ -8,8 +10,8 @@ export interface RollbackResult {
   filesRestored: string[];
 }
 
-export function rollbackLastPatch(projectDir: string): RollbackResult {
-  const backup = new Backup(projectDir);
+export function rollbackLastPatch(project: Project): RollbackResult {
+  const backup = new Backup(project.projectDir);
   const lastTx = backup.getLastTransaction();
 
   if (!lastTx) {
@@ -28,6 +30,9 @@ export function rollbackLastPatch(projectDir: string): RollbackResult {
   }
 
   backup.removeTransaction(lastTx.id);
+
+  // Reload model to refresh both file snapshots and entity data after restore
+  reloadModel(project.model);
 
   return {
     restoredTransactionId: lastTx.id,

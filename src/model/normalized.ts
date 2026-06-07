@@ -207,3 +207,79 @@ export function buildNormalizedModel(projectDir: string, adapter: EngineAdapter)
 
   return model;
 }
+
+export function reloadModel(model: NormalizedModel): void {
+  const projectDir = model.projectDir;
+  const adapter = model.adapter;
+
+  // Clear all entity maps
+  for (const type of model.getEntityTypes()) {
+    model.entities.get(type)?.clear();
+  }
+  model.mapInfos.clear();
+  model.maps.clear();
+
+  // Re-read all data files
+  for (const file of adapter.dataFiles()) {
+    const filePath = join(projectDir, "data", file);
+
+    // Update snapshot
+    model.fileSnapshots.set(filePath, snapshotFile(filePath));
+
+    try {
+      const content = readFileSync(filePath, "utf-8");
+      const data = JSON.parse(content);
+
+      if (file === "System.json") {
+        model.system = data as SystemData;
+      } else if (file === "MapInfos.json") {
+        for (let i = 1; i < data.length; i++) {
+          if (data[i]) {
+            model.mapInfos.set(data[i].id, data[i] as MapInfo);
+          }
+        }
+      } else if (Array.isArray(data)) {
+        const entity = FILE_TO_ENTITY[file];
+        if (entity) {
+          const entityMap = model.entities.get(entity);
+          if (entityMap) {
+            for (let i = 1; i < data.length; i++) {
+              if (data[i]) {
+                entityMap.set(data[i].id, data[i] as Entity);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      throw new IoError(filePath, err);
+    }
+  }
+
+  // Re-read maps
+  const mapInfosFile = join(projectDir, "data", "MapInfos.json");
+  try {
+    const content = readFileSync(mapInfosFile, "utf-8");
+    const mapInfos = JSON.parse(content);
+    for (let i = 1; i < mapInfos.length; i++) {
+      if (mapInfos[i]) {
+        const mapFile = join(projectDir, "data", `Map${String(i).padStart(3, "0")}.json`);
+        model.fileSnapshots.set(mapFile, snapshotFile(mapFile));
+        try {
+          const mapContent = readFileSync(mapFile, "utf-8");
+          const mapData = JSON.parse(mapContent) as MapData;
+          model.maps.set(i, mapData);
+        } catch {
+          // Map file might not exist
+        }
+      }
+    }
+  } catch {
+    // MapInfos might not have entries
+  }
+
+  // Re-read plugins
+  model.plugins = adapter.pluginConfig.read(projectDir);
+  const pluginsFile = join(projectDir, "js", "plugins.js");
+  model.fileSnapshots.set(pluginsFile, snapshotFile(pluginsFile));
+}

@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 import { hashContent } from "../model/hash.js";
@@ -48,7 +48,14 @@ export class Backup {
       files,
       preHashes,
     };
-    writeFileSync(this.journalPath, `${JSON.stringify(record)}\n`, { flag: "a" });
+
+    // Read existing content, append new record, write atomically
+    let existingContent = "";
+    if (existsSync(this.journalPath)) {
+      existingContent = readFileSync(this.journalPath, "utf-8");
+    }
+    const newContent = `${existingContent}${JSON.stringify(record)}\n`;
+    writeFileAtomic.sync(this.journalPath, newContent, "utf-8");
   }
 
   listTransactions(): TransactionRecord[] {
