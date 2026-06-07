@@ -64,11 +64,15 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
       writtenFiles.push(filePath);
     }
 
-    // Reload model to refresh both file snapshots and entity data for next apply
-    reloadModel(project.model);
-
+    // Record transaction and clear staging BEFORE reloading model.
+    // If either fails, the catch block restores files, and the model
+    // still holds pre-apply snapshots (consistent with restored files).
     backup.recordTransaction(transactionId, filesToWrite, preHashes);
     staging.clear();
+
+    // Reload model to refresh both file snapshots and entity data for next apply.
+    // Only reached if recordTransaction and staging.clear succeeded.
+    reloadModel(project.model);
 
     return {
       transactionId,
