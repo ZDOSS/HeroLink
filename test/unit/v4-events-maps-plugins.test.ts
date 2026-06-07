@@ -138,6 +138,52 @@ describe("v4 events, maps & plugins", () => {
         expect(hashFile(mapPath)).toBe(beforeHash);
       });
     });
+
+    it("multiple map event creates on same map get unique IDs", async () => {
+      await withTempProject("sample-project", async (projectDir) => {
+        const project = loadProject(projectDir);
+        const mapPath = join(projectDir, "data", "Map001.json");
+
+        // Create two events on the same map in one batch
+        createMapEventDraft(project, project.staging, {
+          mapId: 1,
+          name: "NPC A",
+          x: 5,
+          y: 5,
+          pages: [{ commands: [{ type: "comment", lines: ["A"] }] }],
+        });
+
+        createMapEventDraft(project, project.staging, {
+          mapId: 1,
+          name: "NPC B",
+          x: 10,
+          y: 10,
+          pages: [{ commands: [{ type: "comment", lines: ["B"] }] }],
+        });
+
+        await applyPatch(project, project.staging);
+
+        const afterData = JSON.parse(readFileSync(mapPath, "utf-8"));
+        const events = afterData.events.filter((e: { id: number } | null) => e !== null);
+
+        // Should have 3 events now (1 original + 2 new)
+        expect(events.length).toBe(3);
+
+        // Find the two new events
+        const npcA = events.find((e: { name: string }) => e.name === "NPC A");
+        const npcB = events.find((e: { name: string }) => e.name === "NPC B");
+
+        expect(npcA).toBeDefined();
+        expect(npcB).toBeDefined();
+
+        // They should have different IDs
+        expect(npcA.id).not.toBe(npcB.id);
+
+        // IDs should be sequential (2 and 3, since 1 is the original)
+        expect(npcA.id).toBe(2);
+        expect(npcB.id).toBe(3);
+      });
+    });
   });
 
   describe("plugins", () => {

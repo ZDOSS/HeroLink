@@ -119,7 +119,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 400, indent: 0, parameters: [0, 2, 0] },
+        { code: 111, indent: 0, parameters: [0, 2, 0] },
       ]);
     });
 
@@ -133,7 +133,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 400, indent: 0, parameters: [1, 5, 0, 100, 0] },
+        { code: 111, indent: 0, parameters: [1, 5, 0, 100, 0] },
       ]);
     });
 
@@ -146,7 +146,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 400, indent: 0, parameters: [2, "B", 0] },
+        { code: 111, indent: 0, parameters: [2, "B", 0] },
       ]);
     });
 
@@ -300,7 +300,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 400, indent: 0, parameters: [3, 1, 0, 5, 0] },
+        { code: 111, indent: 0, parameters: [3, 1, 0, 5, 0] },
       ]);
     });
 
@@ -313,7 +313,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 400, indent: 0, parameters: [0, 1, 1] },
+        { code: 111, indent: 0, parameters: [0, 1, 1] },
       ]);
     });
 
@@ -326,7 +326,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 400, indent: 0, parameters: [2, "A", 1] },
+        { code: 111, indent: 0, parameters: [2, "A", 1] },
       ]);
     });
   });

@@ -116,6 +116,8 @@ export function buildWritePlans(
         const ids = mapEventIds.get(draft.mapId) ?? [];
         const nextEventId = computeNextMapEventId(ids.map((id) => ({ id })));
         ops.push(...buildCreateMapEventOps(draft, nextEventId));
+        // Advance the cursor so the next create on the same map gets the next ID
+        mapEventIds.set(draft.mapId, [...ids, nextEventId]);
         break;
       }
       case "updateMapEvent": {

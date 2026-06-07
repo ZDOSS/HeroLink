@@ -173,14 +173,14 @@ function compileConditionalBranch(
       if (cmd.switchId === undefined || cmd.switchValue === undefined) {
         throw new Error("Switch condition requires switchId and switchValue");
       }
-      return [{ code: 400, indent, parameters: [0, cmd.switchId, cmd.switchValue ? 0 : 1] }];
+      return [{ code: 111, indent, parameters: [0, cmd.switchId, cmd.switchValue ? 0 : 1] }];
     case "variable":
       if (cmd.variableId === undefined) {
         throw new Error("Variable condition requires variableId");
       }
       return [
         {
-          code: 400,
+          code: 111,
           indent,
           parameters: [1, cmd.variableId, cmd.variableOp, cmd.variableValue ?? 0, 0],
         },
@@ -190,14 +190,14 @@ function compileConditionalBranch(
         throw new Error("Self-switch condition requires selfSwitchCh and selfSwitchValue");
       }
       return [
-        { code: 400, indent, parameters: [2, cmd.selfSwitchCh, cmd.selfSwitchValue ? 0 : 1] },
+        { code: 111, indent, parameters: [2, cmd.selfSwitchCh, cmd.selfSwitchValue ? 0 : 1] },
       ];
     case "actor":
       if (cmd.actorId === undefined) {
         throw new Error("Actor condition requires actorId");
       }
       return [
-        { code: 400, indent, parameters: [3, cmd.actorId, cmd.actorOp, cmd.actorValue ?? 0, 0] },
+        { code: 111, indent, parameters: [3, cmd.actorId, cmd.actorOp, cmd.actorValue ?? 0, 0] },
       ];
     default: {
       const _exhaustive: never = cmd.conditionType;

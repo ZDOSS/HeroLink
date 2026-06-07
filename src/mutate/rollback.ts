@@ -32,7 +32,7 @@ export function rollbackLastPatch(project: Project): RollbackResult {
       continue;
     }
 
-    const relPath = file.replace(/\\/g, "/").split("/").slice(-2).join("/");
+    const relPath = getRelPath(file, project.projectDir);
     const backupPath = join(backup.getBackupDir(lastTx.id), relPath);
 
     const backupContent = readFileSync(backupPath, "utf-8");
@@ -49,4 +49,11 @@ export function rollbackLastPatch(project: Project): RollbackResult {
     restoredTransactionId: lastTx.id,
     filesRestored,
   };
+}
+
+function getRelPath(filePath: string, projectDir: string): string {
+  return filePath
+    .replace(projectDir, "")
+    .replace(/^[\\/]/, "")
+    .replace(/\\/g, "/");
 }

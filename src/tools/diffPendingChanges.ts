@@ -9,8 +9,12 @@ export const DiffPendingChangesInput = z.object({});
 export const DiffPendingChangesOutput = z.object({
   patches: z.array(
     z.object({
-      file: z.string(),
-      ops: z.array(z.record(z.unknown())),
+      kind: z.enum(["jsonPatch", "pluginConfig", "pluginFile"]),
+      file: z.string().optional(),
+      ops: z.array(z.record(z.unknown())).optional(),
+      name: z.string().optional(),
+      entries: z.array(z.record(z.unknown())).optional(),
+      source: z.string().optional(),
     }),
   ),
   humanSummary: z.string(),
@@ -67,15 +71,30 @@ export function diffPendingChanges(project: Project, staging: Staging) {
   if (pluginChanges > 0) parts.push(`${pluginChanges} plugin change(s)`);
   const humanSummary = parts.join(", ") || "No pending changes";
 
-  const jsonPatches = writePlans
-    .filter((p) => p.kind === "jsonPatch")
-    .map((fp) => ({
-      file: fp.file,
-      ops: fp.ops as unknown as Record<string, unknown>[],
-    }));
+  const patches = writePlans.map((plan) => {
+    if (plan.kind === "jsonPatch") {
+      return {
+        kind: "jsonPatch" as const,
+        file: plan.file,
+        ops: plan.ops as unknown as Record<string, unknown>[],
+      };
+    }
+    if (plan.kind === "pluginConfig") {
+      return {
+        kind: "pluginConfig" as const,
+        file: "js/plugins.js",
+        entries: plan.entries as unknown as Record<string, unknown>[],
+      };
+    }
+    return {
+      kind: "pluginFile" as const,
+      name: plan.name,
+      source: plan.source,
+    };
+  });
 
   return {
-    patches: jsonPatches,
+    patches,
     humanSummary,
   };
 }

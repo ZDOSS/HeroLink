@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { loadProject } from "./io/project.js";
 import { addPluginDraft } from "./tools/addPluginDraft.js";
@@ -199,7 +200,6 @@ program
   .description("Add a new plugin from a source file")
   .option("--no-status", "Add plugin as disabled")
   .action((projectDir: string, name: string, sourceFile: string, opts: { status: boolean }) => {
-    const { readFileSync } = require("node:fs");
     const project = loadProject(projectDir);
     const source = readFileSync(sourceFile, "utf-8");
     const result = addPluginDraft(project, project.staging, {
