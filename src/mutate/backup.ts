@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import writeFileAtomic from "write-file-atomic";
 import { hashContent } from "../model/hash.js";
 
 export interface TransactionRecord {
@@ -76,7 +77,7 @@ export class Backup {
     const transactions = this.listTransactions();
     const filtered = transactions.filter((t) => t.id !== transactionId);
     const content = filtered.map((t) => JSON.stringify(t)).join("\n");
-    writeFileSync(this.journalPath, content ? `${content}\n` : "", "utf-8");
+    writeFileAtomic.sync(this.journalPath, content ? `${content}\n` : "", "utf-8");
   }
 
   getBackupDir(transactionId: string): string {
