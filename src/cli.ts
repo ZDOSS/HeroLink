@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { loadProject } from "./io/project.js";
+import { addPluginDraft } from "./tools/addPluginDraft.js";
 import { applyPatchTool } from "./tools/applyPatchTool.js";
 import { diffPendingChanges } from "./tools/diffPendingChanges.js";
 import { discardPendingChanges } from "./tools/discardPendingChanges.js";
@@ -15,6 +17,7 @@ import { listProjectData } from "./tools/listProjectData.js";
 import { rollbackLastPatchTool } from "./tools/rollbackLastPatchTool.js";
 import { searchEvents } from "./tools/searchEvents.js";
 import { searchNotes } from "./tools/searchNotes.js";
+import { setPluginParamDraft } from "./tools/setPluginParamDraft.js";
 import { validateProjectRefs } from "./tools/validateProjectRefs.js";
 
 const program = new Command();
@@ -177,6 +180,34 @@ program
   .action((projectDir: string) => {
     const project = loadProject(projectDir);
     const result = listBackups(project);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("set-plugin-param <projectDir> <pluginName> <key> <value>")
+  .description("Set a plugin parameter")
+  .action((projectDir: string, pluginName: string, key: string, value: string) => {
+    const project = loadProject(projectDir);
+    const result = setPluginParamDraft(project, project.staging, {
+      pluginName,
+      params: { [key]: value },
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("add-plugin <projectDir> <name> <sourceFile>")
+  .description("Add a new plugin from a source file")
+  .option("--no-status", "Add plugin as disabled")
+  .action((projectDir: string, name: string, sourceFile: string, opts: { status: boolean }) => {
+    const project = loadProject(projectDir);
+    const source = readFileSync(sourceFile, "utf-8");
+    const result = addPluginDraft(project, project.staging, {
+      name,
+      source,
+      status: opts.status,
+      params: {},
+    });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   });
 

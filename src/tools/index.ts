@@ -62,3 +62,28 @@ export {
   rollbackLastPatchTool,
 } from "./rollbackLastPatchTool.js";
 export { ListBackupsInput, ListBackupsOutput, listBackups } from "./listBackups.js";
+export {
+  CreateCommonEventDraftInput,
+  CreateCommonEventDraftOutput,
+  createCommonEventDraft,
+} from "./createCommonEventDraft.js";
+export {
+  CreateMapEventDraftInput,
+  CreateMapEventDraftOutput,
+  createMapEventDraft,
+} from "./createMapEventDraft.js";
+export {
+  UpdateMapEventDraftInput,
+  UpdateMapEventDraftOutput,
+  updateMapEventDraft,
+} from "./updateMapEventDraft.js";
+export {
+  SetPluginParamDraftInput,
+  SetPluginParamDraftOutput,
+  setPluginParamDraft,
+} from "./setPluginParamDraft.js";
+export {
+  AddPluginDraftInput,
+  AddPluginDraftOutput,
+  addPluginDraft,
+} from "./addPluginDraft.js";

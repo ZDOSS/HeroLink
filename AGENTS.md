@@ -43,3 +43,23 @@ CODE REVIEW CHECKLIST (before committing):
 18. For every in-memory cache/snapshot: Is it refreshed after operations that change the underlying data?
 19. For every tool: Does it work correctly when called multiple times in the same session?
 20. For every test: Does it assert the right things, or just check that no error was thrown?
+
+RPG MAKER MV SPECIFIC RULES:
+21. ESM ONLY: This is an ESM project. Never use require(). Always use import statements. If you need
+    dynamic imports, use await import().
+22. VERIFY OPCODES: When implementing event commands, verify the opcode number against the RPG Maker MV
+    source code or official documentation. Do not guess. Common opcodes:
+    - Show Text: 101 (setup) + 401 (lines)
+    - Control Switches: 121
+    - Control Variables: 122
+    - Conditional Branch: 111 (NOT 400)
+    - Comment: 108 (first line) + 408 (continuation)
+    - Terminator: 0
+23. CURSOR ADVANCEMENT: When allocating IDs (entities, map events, etc.), you MUST advance the cursor
+    after each allocation. Pattern: nextIds.set(type, id + 1) or mapEventIds.set(mapId, [...ids, newId]).
+    Failure to advance causes duplicate IDs.
+24. CONSISTENT PATH HANDLING: Use getRelPath(file, projectDir) consistently across all files. Never use
+    split("/").slice(-2).join("/") or similar heuristics. This breaks for nested paths.
+25. COMPLETE DIFF OUTPUT: When implementing diff/preview tools, include ALL write plan types (jsonPatch,
+    pluginConfig, pluginFile). Do not silently omit any changes. Users need to see the complete picture
+    before applying.

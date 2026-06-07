@@ -19,7 +19,44 @@ export interface UpdateDraft {
   patch: Record<string, unknown>;
 }
 
-export type Draft = CreateDraft | UpdateDraft;
+export interface CreateMapEventDraft {
+  type: "createMapEvent";
+  changeId: string;
+  mapId: number;
+  event: Record<string, unknown>;
+}
+
+export interface UpdateMapEventDraft {
+  type: "updateMapEvent";
+  changeId: string;
+  mapId: number;
+  eventId: number;
+  patch: Record<string, unknown>;
+}
+
+export interface SetPluginParamsDraft {
+  type: "setPluginParams";
+  changeId: string;
+  pluginName: string;
+  params: Record<string, string>;
+}
+
+export interface AddPluginDraft {
+  type: "addPlugin";
+  changeId: string;
+  name: string;
+  source: string;
+  status: boolean;
+  params: Record<string, string>;
+}
+
+export type Draft =
+  | CreateDraft
+  | UpdateDraft
+  | CreateMapEventDraft
+  | UpdateMapEventDraft
+  | SetPluginParamsDraft
+  | AddPluginDraft;
 
 export interface StagingData {
   drafts: Draft[];
@@ -66,6 +103,43 @@ export class Staging {
   addUpdate(entityType: EntityType, entityId: number, patch: Record<string, unknown>): string {
     const changeId = randomUUID();
     const draft: UpdateDraft = { type: "update", changeId, entityType, entityId, patch };
+    this.drafts.push(draft);
+    this.save();
+    return changeId;
+  }
+
+  addCreateMapEvent(mapId: number, event: Record<string, unknown>): string {
+    const changeId = randomUUID();
+    const draft: CreateMapEventDraft = { type: "createMapEvent", changeId, mapId, event };
+    this.drafts.push(draft);
+    this.save();
+    return changeId;
+  }
+
+  addUpdateMapEvent(mapId: number, eventId: number, patch: Record<string, unknown>): string {
+    const changeId = randomUUID();
+    const draft: UpdateMapEventDraft = { type: "updateMapEvent", changeId, mapId, eventId, patch };
+    this.drafts.push(draft);
+    this.save();
+    return changeId;
+  }
+
+  addSetPluginParams(pluginName: string, params: Record<string, string>): string {
+    const changeId = randomUUID();
+    const draft: SetPluginParamsDraft = { type: "setPluginParams", changeId, pluginName, params };
+    this.drafts.push(draft);
+    this.save();
+    return changeId;
+  }
+
+  addAddPlugin(
+    name: string,
+    source: string,
+    status: boolean,
+    params: Record<string, string>,
+  ): string {
+    const changeId = randomUUID();
+    const draft: AddPluginDraft = { type: "addPlugin", changeId, name, source, status, params };
     this.drafts.push(draft);
     this.save();
     return changeId;
