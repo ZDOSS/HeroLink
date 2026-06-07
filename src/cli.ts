@@ -1,19 +1,25 @@
 import { Command } from "commander";
 import { loadProject } from "./io/project.js";
+import { applyPatchTool } from "./tools/applyPatchTool.js";
+import { diffPendingChanges } from "./tools/diffPendingChanges.js";
+import { discardPendingChanges } from "./tools/discardPendingChanges.js";
 import { getEntity } from "./tools/getEntity.js";
 import { getMapEvents } from "./tools/getMapEvents.js";
 import { getProjectStatus } from "./tools/getProjectStatus.js";
+import { listBackups } from "./tools/listBackups.js";
 import { listEntities } from "./tools/listEntities.js";
 import { listMaps } from "./tools/listMaps.js";
+import { listPendingChanges } from "./tools/listPendingChanges.js";
 import { listPlugins } from "./tools/listPlugins.js";
 import { listProjectData } from "./tools/listProjectData.js";
+import { rollbackLastPatchTool } from "./tools/rollbackLastPatchTool.js";
 import { searchEvents } from "./tools/searchEvents.js";
 import { searchNotes } from "./tools/searchNotes.js";
 import { validateProjectRefs } from "./tools/validateProjectRefs.js";
 
 const program = new Command();
 
-program.name("rpgmv-bridge").description("RPG Maker MV Content Bridge CLI").version("0.1.0");
+program.name("rpgmv-bridge").description("RPG Maker MV Content Bridge CLI").version("0.3.0");
 
 program
   .command("status <projectDir>")
@@ -117,6 +123,60 @@ program
   .action((projectDir: string) => {
     const project = loadProject(projectDir);
     const result = validateProjectRefs(project);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("pending <projectDir>")
+  .description("List pending draft changes")
+  .action((projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = listPendingChanges(project, project.staging);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("diff <projectDir>")
+  .description("Show JSON Patch diff of pending changes")
+  .action((projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = diffPendingChanges(project, project.staging);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("discard <projectDir>")
+  .description("Discard all pending draft changes")
+  .action((projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = discardPendingChanges(project, project.staging, {});
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("apply <projectDir>")
+  .description("Apply all pending changes")
+  .action(async (projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = await applyPatchTool(project, project.staging, { confirm: true });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("rollback <projectDir>")
+  .description("Rollback the last applied transaction")
+  .action((projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = rollbackLastPatchTool(project);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("backups <projectDir>")
+  .description("List all backup transactions")
+  .action((projectDir: string) => {
+    const project = loadProject(projectDir);
+    const result = listBackups(project);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   });
 

@@ -5,25 +5,45 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { loadProject } from "./io/project.js";
 import { logger } from "./log.js";
 import {
+  ApplyPatchInput,
+  CreateEntityDraftInput,
+  CreateItemDraftInput,
+  CreateSkillDraftInput,
+  DiffPendingChangesInput,
+  DiscardPendingChangesInput,
   GetEntityInput,
   GetMapEventsInput,
   GetProjectStatusInput,
+  ListBackupsInput,
   ListEntitiesInput,
   ListMapsInput,
+  ListPendingChangesInput,
   ListPluginsInput,
   ListProjectDataInput,
+  RollbackLastPatchInput,
   SearchEventsInput,
   SearchNotesInput,
+  UpdateEntityDraftInput,
   ValidateProjectRefsInput,
+  applyPatchTool,
+  createEntityDraft,
+  createItemDraft,
+  createSkillDraft,
+  diffPendingChanges,
+  discardPendingChanges,
   getEntity,
   getMapEvents,
   getProjectStatus,
+  listBackups,
   listEntities,
   listMaps,
+  listPendingChanges,
   listPlugins,
   listProjectData,
+  rollbackLastPatchTool,
   searchEvents,
   searchNotes,
+  updateEntityDraft,
   validateProjectRefs,
 } from "./tools/index.js";
 
@@ -32,61 +52,127 @@ const TOOL_DEFS = [
     name: "get_project_status",
     description: "Get project health and identity",
     inputSchema: GetProjectStatusInput,
-    handler: getProjectStatus,
+    handler: (p: ReturnType<typeof loadProject>) => getProjectStatus(p),
   },
   {
     name: "list_project_data",
     description: "List entity counts, map count, plugin count",
     inputSchema: ListProjectDataInput,
-    handler: listProjectData,
+    handler: (p: ReturnType<typeof loadProject>) => listProjectData(p),
   },
   {
     name: "list_entities",
     description: "List database entities by type with optional query/limit/offset",
     inputSchema: ListEntitiesInput,
-    handler: listEntities,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) => listEntities(p, args as never),
   },
   {
     name: "get_entity",
     description: "Get a full database entity by type and id",
     inputSchema: GetEntityInput,
-    handler: getEntity,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) => getEntity(p, args as never),
   },
   {
     name: "list_maps",
     description: "List all maps with id, name, parentId, order",
     inputSchema: ListMapsInput,
-    handler: listMaps,
+    handler: (p: ReturnType<typeof loadProject>) => listMaps(p),
   },
   {
     name: "get_map_events",
     description: "Get event summaries for a map",
     inputSchema: GetMapEventsInput,
-    handler: getMapEvents,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) => getMapEvents(p, args as never),
   },
   {
     name: "search_events",
     description: "Search event text (show-text, comments, scripts)",
     inputSchema: SearchEventsInput,
-    handler: searchEvents,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) => searchEvents(p, args as never),
   },
   {
     name: "search_notes",
     description: "Search note fields and meta",
     inputSchema: SearchNotesInput,
-    handler: searchNotes,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) => searchNotes(p, args as never),
   },
   {
     name: "list_plugins",
     description: "List plugins from plugins.js",
     inputSchema: ListPluginsInput,
-    handler: listPlugins,
+    handler: (p: ReturnType<typeof loadProject>) => listPlugins(p),
   },
   {
     name: "validate_project_refs",
     description: "Audit project for broken references, dangling IDs, and integrity issues",
     inputSchema: ValidateProjectRefsInput,
-    handler: validateProjectRefs,
+    handler: (p: ReturnType<typeof loadProject>) => validateProjectRefs(p),
+  },
+  {
+    name: "create_item_draft",
+    description: "Draft a new item for creation",
+    inputSchema: CreateItemDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      createItemDraft(p, p.staging, args as never),
+  },
+  {
+    name: "create_skill_draft",
+    description: "Draft a new skill for creation",
+    inputSchema: CreateSkillDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      createSkillDraft(p, p.staging, args as never),
+  },
+  {
+    name: "create_entity_draft",
+    description: "Draft a new entity of any type for creation",
+    inputSchema: CreateEntityDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      createEntityDraft(p, p.staging, args as never),
+  },
+  {
+    name: "update_entity_draft",
+    description: "Draft an update to an existing entity",
+    inputSchema: UpdateEntityDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      updateEntityDraft(p, p.staging, args as never),
+  },
+  {
+    name: "list_pending_changes",
+    description: "List all pending draft changes",
+    inputSchema: ListPendingChangesInput,
+    handler: (p: ReturnType<typeof loadProject>) => listPendingChanges(p, p.staging),
+  },
+  {
+    name: "diff_pending_changes",
+    description: "Show JSON Patch diff of pending changes",
+    inputSchema: DiffPendingChangesInput,
+    handler: (p: ReturnType<typeof loadProject>) => diffPendingChanges(p, p.staging),
+  },
+  {
+    name: "discard_pending_changes",
+    description: "Discard pending draft changes",
+    inputSchema: DiscardPendingChangesInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      discardPendingChanges(p, p.staging, args as never),
+  },
+  {
+    name: "apply_patch",
+    description: "Apply all pending changes (requires confirm: true)",
+    inputSchema: ApplyPatchInput,
+    handler: async (p: ReturnType<typeof loadProject>, args: unknown) =>
+      applyPatchTool(p, p.staging, args as never),
+  },
+  {
+    name: "rollback_last_patch",
+    description: "Rollback the last applied transaction",
+    inputSchema: RollbackLastPatchInput,
+    handler: (p: ReturnType<typeof loadProject>) => rollbackLastPatchTool(p),
+  },
+  {
+    name: "list_backups",
+    description: "List all backup transactions",
+    inputSchema: ListBackupsInput,
+    handler: (p: ReturnType<typeof loadProject>) => listBackups(p),
   },
 ] as const;
 
@@ -104,7 +190,7 @@ async function main() {
   const project = loadProject(projectDir);
 
   const server = new Server(
-    { name: "rpgmv-bridge", version: "0.1.0" },
+    { name: "rpgmv-bridge", version: "0.3.0" },
     { capabilities: { tools: {} } },
   );
 
@@ -127,7 +213,7 @@ async function main() {
 
     try {
       const parsed = def.inputSchema.parse(args ?? {});
-      const result = def.handler(project, parsed as never);
+      const result = await def.handler(project, parsed as never);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

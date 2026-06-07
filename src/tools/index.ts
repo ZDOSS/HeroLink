@@ -16,3 +16,49 @@ export {
   ValidateProjectRefsOutput,
   validateProjectRefs,
 } from "./validateProjectRefs.js";
+export {
+  CreateItemDraftInput,
+  CreateItemDraftOutput,
+  createItemDraft,
+} from "./createItemDraft.js";
+export {
+  CreateSkillDraftInput,
+  CreateSkillDraftOutput,
+  createSkillDraft,
+} from "./createSkillDraft.js";
+export {
+  CreateEntityDraftInput,
+  CreateEntityDraftOutput,
+  createEntityDraft,
+} from "./createEntityDraft.js";
+export {
+  UpdateEntityDraftInput,
+  UpdateEntityDraftOutput,
+  updateEntityDraft,
+} from "./updateEntityDraft.js";
+export {
+  ListPendingChangesInput,
+  ListPendingChangesOutput,
+  listPendingChanges,
+} from "./listPendingChanges.js";
+export {
+  DiffPendingChangesInput,
+  DiffPendingChangesOutput,
+  diffPendingChanges,
+} from "./diffPendingChanges.js";
+export {
+  DiscardPendingChangesInput,
+  DiscardPendingChangesOutput,
+  discardPendingChanges,
+} from "./discardPendingChanges.js";
+export {
+  ApplyPatchInput,
+  ApplyPatchOutput,
+  applyPatchTool,
+} from "./applyPatchTool.js";
+export {
+  RollbackLastPatchInput,
+  RollbackLastPatchOutput,
+  rollbackLastPatchTool,
+} from "./rollbackLastPatchTool.js";
+export { ListBackupsInput, ListBackupsOutput, listBackups } from "./listBackups.js";

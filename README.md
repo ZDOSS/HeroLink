@@ -39,6 +39,24 @@ npx tsx src/cli.ts plugins path/to/your/project
 
 # Audit project for broken references and integrity issues
 npx tsx src/cli.ts validate path/to/your/project
+
+# List pending draft changes
+npx tsx src/cli.ts pending path/to/your/project
+
+# Show JSON Patch diff of pending changes
+npx tsx src/cli.ts diff path/to/your/project
+
+# Discard all pending draft changes
+npx tsx src/cli.ts discard path/to/your/project
+
+# Apply all pending changes (creates backups)
+npx tsx src/cli.ts apply path/to/your/project
+
+# Rollback the last applied transaction
+npx tsx src/cli.ts rollback path/to/your/project
+
+# List all backup transactions
+npx tsx src/cli.ts backups path/to/your/project
 ```
 
 ### MCP Server (for AI clients)
@@ -48,7 +66,7 @@ npx tsx src/cli.ts validate path/to/your/project
 RPGMV_PROJECT_DIR=path/to/your/project npx tsx src/index.ts
 ```
 
-The MCP server exposes 10 tools: `get_project_status`, `list_project_data`, `list_entities`, `get_entity`, `list_maps`, `get_map_events`, `search_events`, `search_notes`, `list_plugins`, `validate_project_refs`.
+The MCP server exposes 20 tools: `get_project_status`, `list_project_data`, `list_entities`, `get_entity`, `list_maps`, `get_map_events`, `search_events`, `search_notes`, `list_plugins`, `validate_project_refs`, `create_item_draft`, `create_skill_draft`, `create_entity_draft`, `update_entity_draft`, `list_pending_changes`, `diff_pending_changes`, `discard_pending_changes`, `apply_patch`, `rollback_last_patch`, `list_backups`.
 
 ## Development
 
@@ -66,7 +84,7 @@ npm run generate-fixtures  # regenerate test fixtures
 |---------|-----------|--------|
 | v1 | Read & Summarize | **Done** |
 | v2 | Audit & Validate | **Done** |
-| v3 | Safe Database Mutation | Planned |
-| v4 | Events, Maps & Plugins | Planned |
+| v3 | Safe Database Mutation | **Done** |
+| v4 | Events, Maps & Plugins | Next |
 | v5 | In-Engine Integration | Planned |
 | v6 | Full Surface (HTTP/UI, MZ, Electron) | Planned |
