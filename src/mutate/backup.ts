@@ -25,6 +25,12 @@ export class Backup {
 
     const preHashes: Record<string, string> = {};
     for (const file of files) {
+      if (!existsSync(file)) {
+        // New file — no backup needed, but record empty hash for rollback
+        preHashes[file] = "";
+        continue;
+      }
+
       const content = readFileSync(file, "utf-8");
       preHashes[file] = hashContent(content);
 

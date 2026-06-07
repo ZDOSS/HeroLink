@@ -5,9 +5,12 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { loadProject } from "./io/project.js";
 import { logger } from "./log.js";
 import {
+  AddPluginDraftInput,
   ApplyPatchInput,
+  CreateCommonEventDraftInput,
   CreateEntityDraftInput,
   CreateItemDraftInput,
+  CreateMapEventDraftInput,
   CreateSkillDraftInput,
   DiffPendingChangesInput,
   DiscardPendingChangesInput,
@@ -23,11 +26,16 @@ import {
   RollbackLastPatchInput,
   SearchEventsInput,
   SearchNotesInput,
+  SetPluginParamDraftInput,
   UpdateEntityDraftInput,
+  UpdateMapEventDraftInput,
   ValidateProjectRefsInput,
+  addPluginDraft,
   applyPatchTool,
+  createCommonEventDraft,
   createEntityDraft,
   createItemDraft,
+  createMapEventDraft,
   createSkillDraft,
   diffPendingChanges,
   discardPendingChanges,
@@ -43,7 +51,9 @@ import {
   rollbackLastPatchTool,
   searchEvents,
   searchNotes,
+  setPluginParamDraft,
   updateEntityDraft,
+  updateMapEventDraft,
   validateProjectRefs,
 } from "./tools/index.js";
 
@@ -173,6 +183,41 @@ const TOOL_DEFS = [
     description: "List all backup transactions",
     inputSchema: ListBackupsInput,
     handler: (p: ReturnType<typeof loadProject>) => listBackups(p),
+  },
+  {
+    name: "create_common_event_draft",
+    description: "Draft a new common event with constrained commands",
+    inputSchema: CreateCommonEventDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      createCommonEventDraft(p, p.staging, args as never),
+  },
+  {
+    name: "create_map_event_draft",
+    description: "Draft a new map event with constrained commands",
+    inputSchema: CreateMapEventDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      createMapEventDraft(p, p.staging, args as never),
+  },
+  {
+    name: "update_map_event_draft",
+    description: "Draft an update to an existing map event",
+    inputSchema: UpdateMapEventDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      updateMapEventDraft(p, p.staging, args as never),
+  },
+  {
+    name: "set_plugin_param_draft",
+    description: "Draft parameter changes for an existing plugin",
+    inputSchema: SetPluginParamDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      setPluginParamDraft(p, p.staging, args as never),
+  },
+  {
+    name: "add_plugin_draft",
+    description: "Draft a new plugin with source code",
+    inputSchema: AddPluginDraftInput,
+    handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
+      addPluginDraft(p, p.staging, args as never),
   },
 ] as const;
 

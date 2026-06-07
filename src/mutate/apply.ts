@@ -1,15 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import fjp from "fast-json-patch";
 import writeFileAtomic from "write-file-atomic";
 import { StaleProjectError, ValidationError } from "../errors.js";
+import { serializePluginsJs } from "../io/pluginsJs.js";
 import type { Project } from "../io/project.js";
 import { checkStaleness } from "../model/hash.js";
 import type { EntityType } from "../model/normalized.js";
 import { reloadModel } from "../model/normalized.js";
 import { Backup } from "./backup.js";
-import { buildPatches, computeNextIds } from "./patch.js";
+import { buildWritePlans, computeNextIds } from "./patch.js";
 import type { Staging } from "./staging.js";
 
 export interface ApplyResult {
@@ -41,37 +42,72 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
     }
   }
   const nextIds = computeNextIds(drafts, maxIds);
-  const filePatches = buildPatches(drafts, nextIds);
+
+  const mapEventIds = new Map<number, number[]>();
+  for (const draft of drafts) {
+    if (draft.type === "createMapEvent" || draft.type === "updateMapEvent") {
+      if (!mapEventIds.has(draft.mapId)) {
+        const events = project.model.getMapEvents(draft.mapId);
+        mapEventIds.set(
+          draft.mapId,
+          events.map((e) => e.id),
+        );
+      }
+    }
+  }
+
+  const currentPlugins = project.model.plugins.map((p) => ({
+    name: p.name,
+    status: p.status,
+    description: p.description,
+    parameters: { ...p.parameters },
+  }));
+
+  const writePlans = buildWritePlans(drafts, nextIds, currentPlugins, mapEventIds);
 
   const transactionId = `t-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const backup = new Backup(project.projectDir);
 
-  const filesToWrite = filePatches.map((fp) => join(project.projectDir, "data", fp.file));
-  const preHashes = backup.createBackup(transactionId, filesToWrite);
+  const filesToWrite: string[] = [];
+  for (const plan of writePlans) {
+    if (plan.kind === "jsonPatch") {
+      filesToWrite.push(join(project.projectDir, "data", plan.file));
+    } else if (plan.kind === "pluginConfig") {
+      filesToWrite.push(join(project.projectDir, "js", "plugins.js"));
+    } else if (plan.kind === "pluginFile") {
+      filesToWrite.push(join(project.projectDir, "js", "plugins", `${plan.name}.js`));
+    }
+  }
 
+  const preHashes = backup.createBackup(transactionId, filesToWrite);
   const writtenFiles: string[] = [];
 
   try {
-    for (const fp of filePatches) {
-      const filePath = join(project.projectDir, "data", fp.file);
-      const content = readFileSync(filePath, "utf-8");
-      const data = JSON.parse(content);
-
-      const clone = fjp.deepClone(data);
-      fjp.applyPatch(clone, fp.ops, undefined, true, false);
-
-      writeFileAtomic.sync(filePath, JSON.stringify(clone), "utf-8");
-      writtenFiles.push(filePath);
+    for (const plan of writePlans) {
+      if (plan.kind === "jsonPatch") {
+        const filePath = join(project.projectDir, "data", plan.file);
+        const content = readFileSync(filePath, "utf-8");
+        const data = JSON.parse(content);
+        const clone = fjp.deepClone(data);
+        fjp.applyPatch(clone, plan.ops, undefined, true, false);
+        writeFileAtomic.sync(filePath, JSON.stringify(clone), "utf-8");
+        writtenFiles.push(filePath);
+      } else if (plan.kind === "pluginConfig") {
+        const filePath = join(project.projectDir, "js", "plugins.js");
+        const content = serializePluginsJs(
+          plan.entries as Parameters<typeof serializePluginsJs>[0],
+        );
+        writeFileAtomic.sync(filePath, content, "utf-8");
+        writtenFiles.push(filePath);
+      } else if (plan.kind === "pluginFile") {
+        const filePath = join(project.projectDir, "js", "plugins", `${plan.name}.js`);
+        writeFileAtomic.sync(filePath, plan.source, "utf-8");
+        writtenFiles.push(filePath);
+      }
     }
 
-    // Record transaction and clear staging BEFORE reloading model.
-    // If either fails, the catch block restores files, and the model
-    // still holds pre-apply snapshots (consistent with restored files).
     backup.recordTransaction(transactionId, filesToWrite, preHashes);
     staging.clear();
-
-    // Reload model to refresh both file snapshots and entity data for next apply.
-    // Only reached if recordTransaction and staging.clear succeeded.
     reloadModel(project.model);
 
     return {
@@ -81,15 +117,24 @@ export async function applyPatch(project: Project, staging: Staging): Promise<Ap
     };
   } catch (err) {
     for (const file of writtenFiles) {
-      const relPath = file.replace(/\\/g, "/").split("/").slice(-2).join("/");
+      const relPath = getRelPath(file, project.projectDir);
       const backupPath = join(backup.getBackupDir(transactionId), relPath);
       try {
-        const backupContent = readFileSync(backupPath, "utf-8");
-        writeFileAtomic.sync(file, backupContent, "utf-8");
+        if (existsSync(backupPath)) {
+          const backupContent = readFileSync(backupPath, "utf-8");
+          writeFileAtomic.sync(file, backupContent, "utf-8");
+        }
       } catch {
         // Best effort rollback
       }
     }
     throw err;
   }
+}
+
+function getRelPath(filePath: string, projectDir: string): string {
+  return filePath
+    .replace(projectDir, "")
+    .replace(/^[\\/]/, "")
+    .replace(/\\/g, "/");
 }

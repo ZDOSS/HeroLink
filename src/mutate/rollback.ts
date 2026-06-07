@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 import type { Project } from "../io/project.js";
@@ -21,6 +21,17 @@ export function rollbackLastPatch(project: Project): RollbackResult {
   const filesRestored: string[] = [];
 
   for (const file of lastTx.files) {
+    const preHash = lastTx.preHashes[file];
+
+    if (preHash === "") {
+      // New file that didn't exist before — delete it
+      if (existsSync(file)) {
+        unlinkSync(file);
+      }
+      filesRestored.push(file);
+      continue;
+    }
+
     const relPath = file.replace(/\\/g, "/").split("/").slice(-2).join("/");
     const backupPath = join(backup.getBackupDir(lastTx.id), relPath);
 
