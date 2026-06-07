@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import writeFileAtomic from "write-file-atomic";
 import type { EntityType } from "../model/normalized.js";
 
 export interface CreateDraft {
@@ -39,14 +40,19 @@ export class Staging {
 
   private load(): void {
     if (existsSync(this.stagingPath)) {
-      const data = JSON.parse(readFileSync(this.stagingPath, "utf-8")) as StagingData;
-      this.drafts = data.drafts;
+      try {
+        const data = JSON.parse(readFileSync(this.stagingPath, "utf-8")) as StagingData;
+        this.drafts = data.drafts;
+      } catch {
+        // If staging.json is corrupted, start with an empty draft list
+        this.drafts = [];
+      }
     }
   }
 
   private save(): void {
     const data: StagingData = { drafts: this.drafts };
-    writeFileSync(this.stagingPath, JSON.stringify(data, null, 2), "utf-8");
+    writeFileAtomic.sync(this.stagingPath, JSON.stringify(data, null, 2), "utf-8");
   }
 
   addCreate(entityType: EntityType, fields: Record<string, unknown>): string {

@@ -38,12 +38,6 @@ export function computeNextIds(
     if (!nextIds.has(draft.entityType)) {
       const maxId = maxIds.get(draft.entityType) ?? 0;
       nextIds.set(draft.entityType, maxId + 1);
-    } else {
-      const currentId = nextIds.get(draft.entityType);
-      if (currentId === undefined) {
-        throw new Error(`No next ID found for entity type ${draft.entityType}`);
-      }
-      nextIds.set(draft.entityType, currentId + 1);
     }
   }
 
@@ -78,6 +72,8 @@ function buildCreateOps(draft: CreateDraft, nextIds: Map<EntityType, number>): f
   if (id === undefined) {
     throw new Error(`No next ID found for entity type ${draft.entityType}`);
   }
+  // Advance the cursor so the next create of the same type gets the next ID.
+  nextIds.set(draft.entityType, id + 1);
   const entity = { ...draft.fields, id };
   return [{ op: "add", path: `/${id}`, value: entity }];
 }

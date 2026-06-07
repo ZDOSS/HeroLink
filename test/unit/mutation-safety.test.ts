@@ -332,4 +332,91 @@ describe("mutation safety", () => {
       expect((result2.preview.fields as Record<string, unknown>).id).toBe(maxId + 2);
     });
   });
+
+  it("multi-create batch assigns sequential IDs", async () => {
+    await withTempProject("sample-project", async (projectDir) => {
+      const project = loadProject(projectDir);
+      const itemsPath = join(projectDir, "data", "Items.json");
+
+      const beforeItems = JSON.parse(readFileSync(itemsPath, "utf-8"));
+      const beforeMaxId = beforeItems.length - 1;
+
+      // Create three items in a single batch
+      project.staging.addCreate("Item", {
+        name: "Potion A",
+        iconIndex: 0,
+        description: "First",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 100,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "100", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      project.staging.addCreate("Item", {
+        name: "Potion B",
+        iconIndex: 0,
+        description: "Second",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 200,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "200", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      project.staging.addCreate("Item", {
+        name: "Potion C",
+        iconIndex: 0,
+        description: "Third",
+        itypeId: 1,
+        scope: 7,
+        occasion: 0,
+        speed: 0,
+        successRate: 100,
+        repeats: 1,
+        tpGain: 0,
+        hitType: 0,
+        animationId: 0,
+        price: 300,
+        consumable: true,
+        damage: { type: 3, elementId: 0, formula: "300", variance: 10, critical: false },
+        effects: [],
+        note: "",
+      });
+
+      // Apply the batch
+      await applyPatch(project, project.staging);
+
+      // Verify all three items were created with sequential IDs
+      const afterItems = JSON.parse(readFileSync(itemsPath, "utf-8"));
+      expect(afterItems.length).toBe(beforeItems.length + 3);
+
+      const nonNullItems = afterItems.filter((i: unknown) => i !== null);
+      const itemA = nonNullItems.find((i: { name: string }) => i.name === "Potion A");
+      const itemB = nonNullItems.find((i: { name: string }) => i.name === "Potion B");
+      const itemC = nonNullItems.find((i: { name: string }) => i.name === "Potion C");
+
+      expect(itemA.id).toBe(beforeMaxId + 1);
+      expect(itemB.id).toBe(beforeMaxId + 2);
+      expect(itemC.id).toBe(beforeMaxId + 3);
+    });
+  });
 });
