@@ -170,13 +170,16 @@ export class FileChannel {
           lockAcquired = this.acquireResponseLock();
         }
         if (lockAcquired) {
-          const currentResponses = this.readResponses();
-          const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
-          if (currentIndex !== -1) {
-            const remaining = currentResponses.filter((_, i) => i !== currentIndex);
-            writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
+          try {
+            const currentResponses = this.readResponses();
+            const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
+            if (currentIndex !== -1) {
+              const remaining = currentResponses.filter((_, i) => i !== currentIndex);
+              writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
+            }
+          } finally {
+            this.releaseResponseLock();
           }
-          this.releaseResponseLock();
         }
         return responses[responseIndex];
       }

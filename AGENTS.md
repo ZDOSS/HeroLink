@@ -92,3 +92,4 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     b. Did my fix create a new race condition or failure mode? (lifecycle trace)
     c. Does every file write match the surrounding code's conventions? (diff check)
     d. Did I clean up all failure paths (timeouts, errors)? (edge case review)
+    e. Is every lock/release pair wrapped in try/finally to prevent leaks?
