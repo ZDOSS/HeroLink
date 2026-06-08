@@ -330,4 +330,216 @@ describe("command builder", () => {
       ]);
     });
   });
+
+  describe("advanced event commands", () => {
+    it("compiles controlSelfSwitch to code 123", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "controlSelfSwitch",
+        selfSwitchCh: "A",
+        value: true,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 123, indent: 0, parameters: [["A"], 0] },
+      ]);
+    });
+
+    it("compiles changeGold increase to code 125", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "changeGold",
+        operation: "increase",
+        operand: 100,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 125, indent: 0, parameters: [0, 0, 100] },
+      ]);
+    });
+
+    it("compiles changeGold decrease to code 125", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "changeGold",
+        operation: "decrease",
+        operand: 50,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 125, indent: 0, parameters: [1, 0, 50] },
+      ]);
+    });
+
+    it("compiles changeItems to code 126", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "changeItems",
+        itemId: 1,
+        operation: "increase",
+        operand: 1,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 126, indent: 0, parameters: [0, 1, 0, 1] },
+      ]);
+    });
+
+    it("compiles changeHp to code 311", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "changeHp",
+        actorId: 1,
+        operation: "decrease",
+        operand: 200,
+        allowKnockout: true,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 311, indent: 0, parameters: [0, 1, 0, 1, 200, 1] },
+      ]);
+    });
+
+    it("compiles showAnimation to code 212", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "showAnimation",
+        actorId: 1,
+        animationId: 5,
+        waitForCompletion: true,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 212, indent: 0, parameters: [1, 5, 1] },
+      ]);
+    });
+
+    it("compiles wait to code 230", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "wait",
+        frames: 60,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 230, indent: 0, parameters: [60] },
+      ]);
+    });
+
+    it("compiles playBgm to code 241", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "playBgm",
+        name: "Battle1",
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 241, indent: 0, parameters: [{ name: "Battle1", volume: 90, pitch: 100, pan: 0 }] },
+      ]);
+    });
+
+    it("compiles label to code 118", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "label",
+        name: "Start",
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 118, indent: 0, parameters: ["Start"] },
+      ]);
+    });
+
+    it("compiles jumpToLabel to code 119", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "jumpToLabel",
+        name: "Start",
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 119, indent: 0, parameters: ["Start"] },
+      ]);
+    });
+
+    it("rejects invalid selfSwitchCh", () => {
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "controlSelfSwitch",
+          selfSwitchCh: "AB",
+          value: true,
+        }),
+      ).toThrow();
+    });
+
+    it("rejects negative changeGold operand", () => {
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "changeGold",
+          operation: "increase",
+          operand: -1,
+        }),
+      ).toThrow();
+    });
+
+    it("rejects wait with zero frames", () => {
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "wait",
+          frames: 0,
+        }),
+      ).toThrow();
+    });
+
+    it("rejects label with empty name", () => {
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "label",
+          name: "",
+        }),
+      ).toThrow();
+    });
+
+    it("compiles changeHp increase to code 311 without knockout", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "changeHp",
+        actorId: 2,
+        operation: "increase",
+        operand: 100,
+        allowKnockout: false,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 311, indent: 0, parameters: [0, 2, 0, 0, 100, 0] },
+      ]);
+    });
+
+    it("compiles changeItems decrease to code 126", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "changeItems",
+        itemId: 2,
+        operation: "decrease",
+        operand: 5,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 126, indent: 0, parameters: [1, 2, 0, 5] },
+      ]);
+    });
+
+    it("compiles showAnimation without wait to code 212", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "showAnimation",
+        actorId: 1,
+        animationId: 3,
+        waitForCompletion: false,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 212, indent: 0, parameters: [1, 3, 0] },
+      ]);
+    });
+
+    it("compiles controlSelfSwitch OFF to code 123", () => {
+      const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
+        type: "controlSelfSwitch",
+        selfSwitchCh: "B",
+        value: false,
+      });
+      const result = compileCommand(cmd);
+      expect(result).toEqual([
+        { code: 123, indent: 0, parameters: [["B"], 1] },
+      ]);
+    });
+  });
 });

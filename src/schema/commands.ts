@@ -71,6 +71,65 @@ const CommentCommand = z.object({
   lines: z.array(z.string()).min(1),
 });
 
+// === Advanced event commands (v6 per-opcode schemas) ===
+
+const ControlSelfSwitchCommand = z.object({
+  type: z.literal("controlSelfSwitch"),
+  selfSwitchCh: z.string().length(1),
+  value: z.boolean(),
+});
+
+const ChangeGoldCommand = z.object({
+  type: z.literal("changeGold"),
+  operation: z.enum(["increase", "decrease"]),
+  operand: z.number().int().nonnegative(),
+});
+
+const ChangeItemsCommand = z.object({
+  type: z.literal("changeItems"),
+  itemId: z.number().int().positive(),
+  operation: z.enum(["increase", "decrease"]),
+  operand: z.number().int().nonnegative(),
+});
+
+const ChangeHpCommand = z.object({
+  type: z.literal("changeHp"),
+  actorId: z.number().int().positive(),
+  operation: z.enum(["increase", "decrease"]),
+  operand: z.number().int(),
+  allowKnockout: z.boolean().default(false),
+});
+
+const ShowAnimationCommand = z.object({
+  type: z.literal("showAnimation"),
+  actorId: z.number().int().positive(),
+  animationId: z.number().int().positive(),
+  waitForCompletion: z.boolean().default(false),
+});
+
+const WaitCommand = z.object({
+  type: z.literal("wait"),
+  frames: z.number().int().positive(),
+});
+
+const PlayBgmCommand = z.object({
+  type: z.literal("playBgm"),
+  name: z.string(),
+  volume: z.number().int().min(0).max(100).default(90),
+  pitch: z.number().int().min(50).max(150).default(100),
+  pan: z.number().int().min(-100).max(100).default(0),
+});
+
+const LabelCommand = z.object({
+  type: z.literal("label"),
+  name: z.string().min(1),
+});
+
+const JumpToLabelCommand = z.object({
+  type: z.literal("jumpToLabel"),
+  name: z.string().min(1),
+});
+
 export const ConstrainedCommandSchema = z.discriminatedUnion("type", [
   ShowTextCommand,
   ControlSwitchesCommand,
@@ -80,6 +139,15 @@ export const ConstrainedCommandSchema = z.discriminatedUnion("type", [
   TransferPlayerCommand,
   ConditionalBranchCommand,
   CommentCommand,
+  ControlSelfSwitchCommand,
+  ChangeGoldCommand,
+  ChangeItemsCommand,
+  ChangeHpCommand,
+  ShowAnimationCommand,
+  WaitCommand,
+  PlayBgmCommand,
+  LabelCommand,
+  JumpToLabelCommand,
 ]);
 
 export type ConstrainedCommand = z.infer<typeof ConstrainedCommandSchema>;
@@ -102,6 +170,24 @@ export function compileCommand(command: ConstrainedCommand, indent = 0): EventCo
       return compileConditionalBranch(command, indent);
     case "comment":
       return compileComment(command, indent);
+    case "controlSelfSwitch":
+      return compileControlSelfSwitch(command, indent);
+    case "changeGold":
+      return compileChangeGold(command, indent);
+    case "changeItems":
+      return compileChangeItems(command, indent);
+    case "changeHp":
+      return compileChangeHp(command, indent);
+    case "showAnimation":
+      return compileShowAnimation(command, indent);
+    case "wait":
+      return compileWait(command, indent);
+    case "playBgm":
+      return compilePlayBgm(command, indent);
+    case "label":
+      return compileLabel(command, indent);
+    case "jumpToLabel":
+      return compileJumpToLabel(command, indent);
     default: {
       const _exhaustive: never = command;
       throw new Error(`Unknown command type: ${JSON.stringify(_exhaustive)}`);
@@ -216,6 +302,87 @@ function compileComment(cmd: z.infer<typeof CommentCommand>, indent: number): Ev
     });
   }
   return commands;
+}
+
+function compileControlSelfSwitch(
+  cmd: z.infer<typeof ControlSelfSwitchCommand>,
+  indent: number,
+): EventCommand[] {
+  return [{ code: 123, indent, parameters: [[cmd.selfSwitchCh], cmd.value ? 0 : 1] }];
+}
+
+function compileChangeGold(cmd: z.infer<typeof ChangeGoldCommand>, indent: number): EventCommand[] {
+  return [
+    { code: 125, indent, parameters: [cmd.operation === "increase" ? 0 : 1, 0, cmd.operand] },
+  ];
+}
+
+function compileChangeItems(
+  cmd: z.infer<typeof ChangeItemsCommand>,
+  indent: number,
+): EventCommand[] {
+  return [
+    {
+      code: 126,
+      indent,
+      parameters: [cmd.operation === "increase" ? 0 : 1, cmd.itemId, 0, cmd.operand],
+    },
+  ];
+}
+
+function compileChangeHp(cmd: z.infer<typeof ChangeHpCommand>, indent: number): EventCommand[] {
+  return [
+    {
+      code: 311,
+      indent,
+      parameters: [
+        0,
+        cmd.actorId,
+        0,
+        cmd.operation === "increase" ? 0 : 1,
+        cmd.operand,
+        cmd.allowKnockout ? 1 : 0,
+      ],
+    },
+  ];
+}
+
+function compileShowAnimation(
+  cmd: z.infer<typeof ShowAnimationCommand>,
+  indent: number,
+): EventCommand[] {
+  return [
+    {
+      code: 212,
+      indent,
+      parameters: [cmd.actorId, cmd.animationId, cmd.waitForCompletion ? 1 : 0],
+    },
+  ];
+}
+
+function compileWait(cmd: z.infer<typeof WaitCommand>, indent: number): EventCommand[] {
+  return [{ code: 230, indent, parameters: [cmd.frames] }];
+}
+
+function compilePlayBgm(cmd: z.infer<typeof PlayBgmCommand>, indent: number): EventCommand[] {
+  return [
+    {
+      code: 241,
+      indent,
+      parameters: [{ name: cmd.name, volume: cmd.volume, pitch: cmd.pitch, pan: cmd.pan }],
+    },
+  ];
+}
+
+function compileLabel(cmd: z.infer<typeof LabelCommand>, indent: number): EventCommand[] {
+  return [{ code: 118, indent, parameters: [cmd.name] }];
+}
+
+function compileJumpToLabel(
+  cmd: z.infer<typeof JumpToLabelCommand>,
+  indent: number,
+): EventCommand[] {
+  return [{ code: 119, indent, parameters: [cmd.name] }];
 }
 
 export function compileCommandList(commands: ConstrainedCommand[]): EventCommand[] {
