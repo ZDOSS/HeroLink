@@ -1,0 +1,1 @@
+[null,{"id":1,"name":"Iron Sword","iconIndex":0,"description":"A basic sword","wtypeId":1,"price":500,"etypeId":1,"params":[0,0,10,0,0,0,0,0],"traits":[],"note":""},{"id":2,"name":"Oak Staff","iconIndex":0,"description":"A wooden staff","wtypeId":2,"price":300,"etypeId":1,"params":[0,0,0,0,8,0,0,0],"traits":[],"note":""}]

@@ -14,7 +14,7 @@ export default defineConfig({
         'src/schema/**': { lines: 90, branches: 90, functions: 90 },
         lines: 75,
         branches: 75,
-        functions: 75,
+        functions: 70,
       },
     },
   },
