@@ -1,0 +1,7 @@
+{
+  "triggerOnUpdates": true,
+  "updateExistingSummaryComment": true,
+  "includeConfidenceScore": true,
+  "statusCheck": true,
+  "instructions": "In every PR summary, start with an explicit, prominent merge readiness status at the very top. If the confidence score is 5/5 and there are no blocking/P0 issues, clearly state something like '✅ All clear for merge' or 'Ready to merge'. Otherwise, prominently highlight any blockers or required fixes first. Keep the confidence score visible and easy to find. Be direct and unambiguous about merge status."
+}
