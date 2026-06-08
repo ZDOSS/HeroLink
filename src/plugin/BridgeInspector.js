@@ -238,7 +238,11 @@
     if (newResponses.length > 0) {
       // Append new responses to existing ones
       var allResponses = existingResponses.concat(newResponses);
-      writeJson("responses.json", allResponses);
+      var wrote = writeJson("responses.json", allResponses);
+      if (!wrote) {
+        console.error("BridgeInspector: Failed to write responses; commands retained for retry.");
+        return;
+      }
     }
 
     // Always clear commands after processing, even if all were malformed
