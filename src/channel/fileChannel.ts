@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 
@@ -161,11 +161,15 @@ export class FileChannel {
       const responseIndex = responses.findIndex((r) => r.id === commandId);
 
       if (responseIndex !== -1) {
-        // Remove the matched response from the file
-        const remainingResponses = responses.filter((_, i) => i !== responseIndex);
+        // Re-read the file to merge any responses the plugin may have
+        // appended between our read and this write (TOCTOU prevention).
         const filepath = join(this.channelDir, "responses.json");
-        writeFileAtomic.sync(filepath, JSON.stringify(remainingResponses, null, 2), "utf-8");
-
+        const currentResponses = this.readResponses();
+        const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
+        if (currentIndex !== -1) {
+          const remaining = currentResponses.filter((_, i) => i !== currentIndex);
+          writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
+        }
         return responses[responseIndex];
       }
 
@@ -187,7 +191,7 @@ export class FileChannel {
         // runtime-state.json holds an object, so clear with "null"
         // commands.json and responses.json hold arrays, so clear with "[]"
         const content = file === "runtime-state.json" ? "null" : "[]";
-        writeFileSync(filepath, content, "utf-8");
+        writeFileAtomic.sync(filepath, content, "utf-8");
       }
     }
   }

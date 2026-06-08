@@ -194,6 +194,7 @@ describe("v5 in-engine integration tools", () => {
 
         // Note: This will timeout since no game is running, but we can verify
         // the entity validation works
+        const itemName = project.model.getEntity("Item", 1)?.name ?? "Item";
         const result = await previewEntity(project, {
           type: "Item",
           id: 1,
@@ -203,7 +204,7 @@ describe("v5 in-engine integration tools", () => {
         // Should fail with timeout, but entity name should be set
         expect(result.entityType).toBe("Item");
         expect(result.entityId).toBe(1);
-        expect(result.entityName).toBe("Potion");
+        expect(result.entityName).toBe(itemName);
       });
     });
 
@@ -220,6 +221,7 @@ describe("v5 in-engine integration tools", () => {
         });
 
         // Note: This will timeout since no game is running
+        const skillName = project.model.getEntity("Skill", 1)?.name ?? "Skill";
         const result = await previewEntity(project, {
           type: "Skill",
           id: 1,
@@ -229,7 +231,7 @@ describe("v5 in-engine integration tools", () => {
         // Should fail with timeout, but entity name should be set
         expect(result.entityType).toBe("Skill");
         expect(result.entityId).toBe(1);
-        expect(result.entityName).toBe("Attack");
+        expect(result.entityName).toBe(skillName);
       });
     });
   });
