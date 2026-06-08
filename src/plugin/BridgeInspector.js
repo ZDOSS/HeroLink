@@ -131,6 +131,27 @@
     }
   }
 
+  function acquireCommandLock() {
+    var lockPath = getChannelPath("commands.lock");
+    if (!lockPath) return false;
+    try {
+      fs.mkdirSync(lockPath);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function releaseCommandLock() {
+    var lockPath = getChannelPath("commands.lock");
+    if (!lockPath) return;
+    try {
+      fs.rmdirSync(lockPath);
+    } catch (e) {
+      // Best effort
+    }
+  }
+
   function writeJson(filename, data) {
     if (!fs || !path) return false;
     try {
@@ -245,60 +266,64 @@
       // worse than a TOCTOU.)
     }
 
-    var existingResponses = [];
-    if (haveLock) {
-      existingResponses = readJson("responses.json");
-      if (!existingResponses || !Array.isArray(existingResponses)) {
-        existingResponses = [];
-      }
-    }
-
-    var newResponses = [];
-
-    for (var i = 0; i < commands.length; i++) {
-      var cmd = commands[i];
-      if (!cmd || !cmd.command) continue;
-
-      var response = executeCommand(cmd);
-      newResponses.push({
-        id: cmd.id || null,
-        command: cmd.command,
-        success: response.success,
-        result: response.result,
-        error: response.error,
-      });
-    }
-
-    if (newResponses.length > 0) {
-      // Write responses (with lock if acquired, without if contended)
-      var allResponses;
+    try {
+      var existingResponses = [];
       if (haveLock) {
-        allResponses = existingResponses.concat(newResponses);
-      } else {
-        // Best-effort: read existing and append without lock
-        var currentExisting = readJson("responses.json");
-        if (!currentExisting || !Array.isArray(currentExisting)) {
-          currentExisting = [];
+        existingResponses = readJson("responses.json");
+        if (!existingResponses || !Array.isArray(existingResponses)) {
+          existingResponses = [];
         }
-        allResponses = currentExisting.concat(newResponses);
       }
-      var wrote = writeJson("responses.json", allResponses);
-      if (!wrote) {
-        console.error("BridgeInspector: Failed to write responses.");
-      }
-    }
 
-    // Clear commands BEFORE releasing lock to prevent replay of side-effectful
-    // commands (PREVIEW_ITEM, PREVIEW_SKILL) on write failure.
-    if (commands.length > 0) {
-      var cleared = writeJson("commands.json", []);
-      if (!cleared) {
-        console.error("BridgeInspector: Failed to clear commands.json; commands may be replayed.");
-      }
-    }
+      var newResponses = [];
 
-    if (haveLock) {
-      releaseResponseLock();
+      for (var i = 0; i < commands.length; i++) {
+        var cmd = commands[i];
+        if (!cmd || !cmd.command) continue;
+
+        var response = executeCommand(cmd);
+        newResponses.push({
+          id: cmd.id || null,
+          command: cmd.command,
+          success: response.success,
+          result: response.result,
+          error: response.error,
+        });
+      }
+
+      if (newResponses.length > 0) {
+        // Write responses (with lock if acquired, without if contended)
+        var allResponses;
+        if (haveLock) {
+          allResponses = existingResponses.concat(newResponses);
+        } else {
+          // Best-effort: read existing and append without lock
+          var currentExisting = readJson("responses.json");
+          if (!currentExisting || !Array.isArray(currentExisting)) {
+            currentExisting = [];
+          }
+          allResponses = currentExisting.concat(newResponses);
+        }
+        var wrote = writeJson("responses.json", allResponses);
+        if (!wrote) {
+          console.error("BridgeInspector: Failed to write responses.");
+        }
+      }
+
+      // Clear commands BEFORE releasing response lock to prevent replay
+      // of side-effectful commands on write failure.
+      if (commands.length > 0) {
+        acquireCommandLock();
+        var cleared = writeJson("commands.json", []);
+        if (!cleared) {
+          console.error("BridgeInspector: Failed to clear commands.json; commands may be replayed.");
+        }
+        releaseCommandLock();
+      }
+    } finally {
+      if (haveLock) {
+        releaseResponseLock();
+      }
     }
   }
 

@@ -99,3 +99,7 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     g. Does the code match its comments? If a comment says "unlocked fallback"
        or "before releasing lock", the code must actually do that — fix the
        code or fix the comment, but never have both disagree.
+    h. When adding a lock or other cross-process coordination to one shared
+       file in a pair, apply the SAME pattern to the other file in the pair.
+       Example: if you add `responses.lock`, also add `commands.lock` — the
+       plugin and bridge both race on both files.

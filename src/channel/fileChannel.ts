@@ -87,13 +87,17 @@ export class FileChannel {
     const id = randomUUID();
     const cmd: BridgeCommand = { id, command, args };
 
-    // Read existing commands
-    const commands = this.readCommands();
-    commands.push(cmd);
+    // Acquire command lock to prevent TOCTOU with plugin's clear
+    this.ensureCommandLock();
+    try {
+      const commands = this.readCommands();
+      commands.push(cmd);
 
-    // Write back atomically
-    const filepath = join(this.channelDir, "commands.json");
-    writeFileAtomic.sync(filepath, JSON.stringify(commands, null, 2), "utf-8");
+      const filepath = join(this.channelDir, "commands.json");
+      writeFileAtomic.sync(filepath, JSON.stringify(commands, null, 2), "utf-8");
+    } finally {
+      this.releaseCommandLock();
+    }
 
     return id;
   }
@@ -105,16 +109,21 @@ export class FileChannel {
     this.ensureDirectory();
 
     const ids: string[] = [];
-    const existingCommands = this.readCommands();
+    this.ensureCommandLock();
+    try {
+      const existingCommands = this.readCommands();
 
-    for (const cmd of commands) {
-      const id = randomUUID();
-      existingCommands.push({ id, command: cmd.command, args: cmd.args });
-      ids.push(id);
+      for (const cmd of commands) {
+        const id = randomUUID();
+        existingCommands.push({ id, command: cmd.command, args: cmd.args });
+        ids.push(id);
+      }
+
+      const filepath = join(this.channelDir, "commands.json");
+      writeFileAtomic.sync(filepath, JSON.stringify(existingCommands, null, 2), "utf-8");
+    } finally {
+      this.releaseCommandLock();
     }
-
-    const filepath = join(this.channelDir, "commands.json");
-    writeFileAtomic.sync(filepath, JSON.stringify(existingCommands, null, 2), "utf-8");
 
     return ids;
   }
@@ -245,6 +254,10 @@ export class FileChannel {
     return join(this.channelDir, "responses.lock");
   }
 
+  private commandsLockPath(): string {
+    return join(this.channelDir, "commands.lock");
+  }
+
   private acquireResponseLock(): boolean {
     const lockPath = this.lockPath();
     try {
@@ -257,6 +270,27 @@ export class FileChannel {
 
   private releaseResponseLock(): void {
     const lockPath = this.lockPath();
+    try {
+      rmSync(lockPath, { recursive: true, force: true });
+    } catch {
+      // Best effort
+    }
+  }
+
+  private ensureCommandLock(): void {
+    const lockPath = this.commandsLockPath();
+    for (let retry = 0; retry < 10; retry++) {
+      try {
+        mkdirSync(lockPath);
+        return;
+      } catch {
+        // Lock contended, retry
+      }
+    }
+  }
+
+  private releaseCommandLock(): void {
+    const lockPath = this.commandsLockPath();
     try {
       rmSync(lockPath, { recursive: true, force: true });
     } catch {
