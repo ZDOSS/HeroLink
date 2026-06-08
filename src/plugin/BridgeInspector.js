@@ -291,7 +291,14 @@
 
   function handleInspect() {
     var state = collectRuntimeState();
-    writeJson("runtime-state.json", state);
+    var wrote = writeJson("runtime-state.json", state);
+    if (!wrote) {
+      return {
+        success: false,
+        result: null,
+        error: "Failed to write runtime-state.json",
+      };
+    }
     return {
       success: true,
       result: { message: "Runtime state written to runtime-state.json" },
