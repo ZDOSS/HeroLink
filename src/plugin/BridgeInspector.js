@@ -299,7 +299,8 @@
         var allResponses = existingResponses.concat(newResponses);
         var wrote = writeJson("responses.json", allResponses);
         if (!wrote) {
-          console.error("BridgeInspector: Failed to write responses.");
+          console.error("BridgeInspector: Failed to write responses; deferring to next cycle.");
+          return; // finally{} releases both locks; commands are kept for retry
         }
       }
 
@@ -515,7 +516,7 @@
     // Ensure channel directory exists
     if (fs && path) {
       var dirPath = getChannelPath("");
-      if (!fs.existsSync(dirPath)) {
+      if (dirPath && !fs.existsSync(dirPath)) {
         try {
           fs.mkdirSync(dirPath, { recursive: true });
         } catch (e) {

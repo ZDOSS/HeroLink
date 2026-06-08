@@ -115,3 +115,7 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        before the protected block. Never execute a write under a lock that
        was never acquired — proceeding unlocked defeats the entire purpose
        of the lock.
+    l. Multi-step write sequences: when step N's write fails, all subsequent
+       writes that depend on step N's success must be skipped or rolled back.
+    m. After every getChannelPath() call, null-check the result before
+       passing it to any fs.* API.
