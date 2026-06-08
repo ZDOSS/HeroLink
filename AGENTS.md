@@ -93,3 +93,6 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     c. Does every file write match the surrounding code's conventions? (diff check)
     d. Did I clean up all failure paths (timeouts, errors)? (edge case review)
     e. Is every lock/release pair wrapped in try/finally to prevent leaks?
+    f. Is every user-facing input path (CLI, MCP, etc.) validated with the
+       same Zod schema?  Never use TypeScript `as` casts as a substitute for
+       runtime validation — they're a compile-time hint, not a runtime guard.

@@ -284,9 +284,7 @@
       }
       var wrote = writeJson("responses.json", allResponses);
       if (!wrote) {
-        console.error("BridgeInspector: Failed to write responses; commands retained for retry.");
-        if (haveLock) releaseResponseLock();
-        return;
+        console.error("BridgeInspector: Failed to write responses.");
       }
     }
 
@@ -294,7 +292,8 @@
       releaseResponseLock();
     }
 
-    // Always clear commands after processing, even if all were malformed
+    // Clear commands BEFORE releasing lock to prevent replay of side-effectful
+    // commands (PREVIEW_ITEM, PREVIEW_SKILL) on write failure.
     if (commands.length > 0) {
       var cleared = writeJson("commands.json", []);
       if (!cleared) {

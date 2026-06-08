@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { Command } from "commander";
+import { z } from "zod";
 import { loadProject } from "./io/project.js";
 import { addPluginDraft } from "./tools/addPluginDraft.js";
 import { applyPatchTool } from "./tools/applyPatchTool.js";
@@ -233,8 +234,13 @@ program
   .option("--timeout <ms>", "Timeout in milliseconds", "5000")
   .action(async (projectDir: string, type: string, id: string, opts: { timeout: string }) => {
     const project = loadProject(projectDir);
+    const parsedType = z.enum(["Item", "Skill"]).safeParse(type);
+    if (!parsedType.success) {
+      process.stderr.write(`Invalid type "${type}". Must be "Item" or "Skill".\n`);
+      process.exit(1);
+    }
     const result = await previewEntity(project, {
-      type: type as "Item" | "Skill",
+      type: parsedType.data,
       id: Number.parseInt(id, 10),
       timeoutMs: Number.parseInt(opts.timeout, 10),
     });
