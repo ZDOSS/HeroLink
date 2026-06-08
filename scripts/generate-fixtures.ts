@@ -221,5 +221,45 @@ function generateBroken() {
   writeJson(join(dataDir, 'Tilesets.json'), [null]);
 }
 
+// MZ uses Game.mzproject instead of Game.rpgproject
+// and has Effekseer-based animations with effectName field
+function mzAnimations() {
+  return nullIndexed([
+    { id: 1, name: 'Fire', animation1Name: '', animation1Hue: 0, animation2Name: '', animation2Hue: 0, position: 1, effectName: 'Fire.efkefc', effekseerFlags: 0, frames: [], timings: [], note: '' },
+  ]);
+}
+
+function generateMzSample() {
+  const MZ_DIR = 'test/fixtures/mz-sample-project';
+  ensureDir(MZ_DIR);
+  const dataDir = join(MZ_DIR, 'data');
+  const pluginsDir = join(MZ_DIR, 'js', 'plugins');
+  mkdirSync(dataDir, { recursive: true });
+  mkdirSync(pluginsDir, { recursive: true });
+
+  writeFileSync(join(MZ_DIR, 'Game.mzproject'), '', 'utf-8');
+  writeJson(join(dataDir, 'System.json'), system());
+  writeJson(join(dataDir, 'Items.json'), items());
+  writeJson(join(dataDir, 'Skills.json'), skills());
+  writeJson(join(dataDir, 'Weapons.json'), weapons());
+  writeJson(join(dataDir, 'Armors.json'), armors());
+  writeJson(join(dataDir, 'States.json'), states());
+  writeJson(join(dataDir, 'Enemies.json'), enemies());
+  writeJson(join(dataDir, 'Actors.json'), actors());
+  writeJson(join(dataDir, 'Classes.json'), classes());
+  writeJson(join(dataDir, 'Troops.json'), troops());
+  writeJson(join(dataDir, 'CommonEvents.json'), commonEvents());
+  writeJson(join(dataDir, 'MapInfos.json'), mapInfos());
+  writeJson(join(dataDir, 'Map001.json'), map001());
+  writeJson(join(dataDir, 'Animations.json'), mzAnimations());
+  writeJson(join(dataDir, 'Tilesets.json'), [null]);
+  writePluginsJs(join(MZ_DIR, 'js', 'plugins.js'), [
+    { name: 'MZPlugin', status: true, description: 'An MZ plugin', parameters: { Key: 'Value' } },
+  ]);
+  writeFileSync(join(pluginsDir, 'MZPlugin.js'), '// MZ Plugin', 'utf-8');
+}
+
 generateSample();
 generateBroken();
+generateMzSample();
+
