@@ -74,3 +74,21 @@ BUG FIX DISCIPLINE (prevent recurring mistakes):
 28. CONVENTION SELF-CHECK: Before committing, re-read your own diff. For every write operation,
     verify it matches the convention used by every OTHER write in the same file. If the file uses
     writeFileAtomic.sync, don't use writeFileSync.
+
+v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
+29. FILE-BASED IPC RULES: When implementing file-based inter-process communication:
+    a. Every write function that returns success/failure MUST have its return
+       value checked at every call site — grep for all callers, not just one.
+    b. Cross-process read-modify-write MUST use a lock file (atomic mkdir)
+       to prevent TOCTOU races between processes.
+    c. Every timeout path MUST clean up its side effects (remove stale commands,
+       release locks, etc.) before returning.
+    d. Every deprecated/optional API (process.mainModule, etc.) MUST have a
+       null guard before property access.
+    e. Every hardcoded value (fixture names, IDs, etc.) in tests MUST be
+       derived from the project model instead.
+30. FIX COMPLETENESS CHECKLIST — before committing any fix, verify:
+    a. Did I check every call site for the same pattern? (grep)
+    b. Did my fix create a new race condition or failure mode? (lifecycle trace)
+    c. Does every file write match the surrounding code's conventions? (diff check)
+    d. Did I clean up all failure paths (timeouts, errors)? (edge case review)
