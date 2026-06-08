@@ -103,7 +103,37 @@
 
   function getChannelPath(filename) {
     if (!path) return null;
-    var projectRoot = path.dirname(process.mainModule.filename);
+    var mainModule = process.mainModule || require.main;
+    if (!mainModule) return null;
+    var projectRoot = path.dirname(mainModule.filename);
+    return path.join(projectRoot, channelDir, filename);
+  }
+
+  function acquireResponseLock() {
+    var lockPath = getChannelPath("responses.lock");
+    if (!lockPath) return false;
+    try {
+      // Atomic directory creation as cross-process lock
+      fs.mkdirSync(lockPath);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function releaseResponseLock() {
+    var lockPath = getChannelPath("responses.lock");
+    if (!lockPath) return;
+    try {
+      fs.rmdirSync(lockPath);
+    } catch (e) {
+      // Best effort
+    }
+  }
+    if (!path) return null;
+    var mainModule = process.mainModule || require.main;
+    if (!mainModule) return null;
+    var projectRoot = path.dirname(mainModule.filename);
     return path.join(projectRoot, channelDir, filename);
   }
 
@@ -213,10 +243,16 @@
     var commands = readJson("commands.json");
     if (!commands || !Array.isArray(commands)) return;
 
-    // Read existing responses to append, not overwrite
-    var existingResponses = readJson("responses.json");
-    if (!existingResponses || !Array.isArray(existingResponses)) {
-      existingResponses = [];
+    // Acquire lock before modifying responses.json to prevent TOCTOU
+    // with the bridge's concurrent response removal.
+    var haveLock = acquireResponseLock();
+
+    var existingResponses = [];
+    if (haveLock) {
+      existingResponses = readJson("responses.json");
+      if (!existingResponses || !Array.isArray(existingResponses)) {
+        existingResponses = [];
+      }
     }
 
     var newResponses = [];
@@ -235,14 +271,19 @@
       });
     }
 
-    if (newResponses.length > 0) {
+    if (newResponses.length > 0 && haveLock) {
       // Append new responses to existing ones
       var allResponses = existingResponses.concat(newResponses);
       var wrote = writeJson("responses.json", allResponses);
       if (!wrote) {
         console.error("BridgeInspector: Failed to write responses; commands retained for retry.");
+        if (haveLock) releaseResponseLock();
         return;
       }
+    }
+
+    if (haveLock) {
+      releaseResponseLock();
     }
 
     // Always clear commands after processing, even if all were malformed

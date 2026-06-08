@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import writeFileAtomic from "write-file-atomic";
 
@@ -161,20 +161,29 @@ export class FileChannel {
       const responseIndex = responses.findIndex((r) => r.id === commandId);
 
       if (responseIndex !== -1) {
-        // Re-read the file to merge any responses the plugin may have
-        // appended between our read and this write (TOCTOU prevention).
+        // Acquire lock before removing the response to prevent TOCTOU
+        // with the plugin's concurrent read-then-append.
         const filepath = join(this.channelDir, "responses.json");
-        const currentResponses = this.readResponses();
-        const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
-        if (currentIndex !== -1) {
-          const remaining = currentResponses.filter((_, i) => i !== currentIndex);
-          writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
+        if (this.acquireResponseLock()) {
+          const currentResponses = this.readResponses();
+          const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
+          if (currentIndex !== -1) {
+            const remaining = currentResponses.filter((_, i) => i !== currentIndex);
+            writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
+          }
+          this.releaseResponseLock();
         }
         return responses[responseIndex];
       }
 
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
+
+    // Timeout: remove stale command from commands.json to prevent ghost previews
+    const commandsPath = join(this.channelDir, "commands.json");
+    const staleCommands = this.readCommands();
+    const filtered = staleCommands.filter((c) => c.id !== commandId);
+    writeFileAtomic.sync(commandsPath, JSON.stringify(filtered, null, 2), "utf-8");
 
     return null;
   }
@@ -209,6 +218,33 @@ export class FileChannel {
       return JSON.parse(content) as BridgeCommand[];
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Acquire a lock file for cross-process coordination of responses.json.
+   * Uses an atomic mkdir operation (fails if dir already exists).
+   */
+  private lockPath(): string {
+    return join(this.channelDir, "responses.lock");
+  }
+
+  private acquireResponseLock(): boolean {
+    const lockPath = this.lockPath();
+    try {
+      mkdirSync(lockPath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private releaseResponseLock(): void {
+    const lockPath = this.lockPath();
+    try {
+      rmSync(lockPath, { recursive: true, force: true });
+    } catch {
+      // Best effort
     }
   }
 }
