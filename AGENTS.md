@@ -63,3 +63,14 @@ RPG MAKER MV SPECIFIC RULES:
 25. COMPLETE DIFF OUTPUT: When implementing diff/preview tools, include ALL write plan types (jsonPatch,
     pluginConfig, pluginFile). Do not silently omit any changes. Users need to see the complete picture
     before applying.
+
+BUG FIX DISCIPLINE (prevent recurring mistakes):
+26. GREP FOR THE SAME BUG: When fixing a bug found in one function, grep the entire project for
+    the same pattern and fix ALL occurrences. Example: if writeJson return value is unchecked in
+    processCommands, grep for all writeJson calls and check every one.
+27. VERIFY FIXES DON'T INTRODUCE NEW BUGS: After applying a fix, trace the full code path of the
+    changed function. Ask: "Could this fix create a race condition? Could it drop data? Could it
+    return a misleading success?" Think about what OTHER process/thread might be doing concurrently.
+28. CONVENTION SELF-CHECK: Before committing, re-read your own diff. For every write operation,
+    verify it matches the convention used by every OTHER write in the same file. If the file uses
+    writeFileAtomic.sync, don't use writeFileSync.
