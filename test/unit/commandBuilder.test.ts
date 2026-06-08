@@ -340,7 +340,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 123, indent: 0, parameters: [["A"], 0] },
+        { code: 123, indent: 0, parameters: ["A", 0] },
       ]);
     });
 
@@ -538,7 +538,7 @@ describe("command builder", () => {
       });
       const result = compileCommand(cmd);
       expect(result).toEqual([
-        { code: 123, indent: 0, parameters: [["B"], 1] },
+        { code: 123, indent: 0, parameters: ["B", 1] },
       ]);
     });
   });

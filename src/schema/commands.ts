@@ -75,7 +75,7 @@ const CommentCommand = z.object({
 
 const ControlSelfSwitchCommand = z.object({
   type: z.literal("controlSelfSwitch"),
-  selfSwitchCh: z.string().length(1),
+  selfSwitchCh: z.enum(["A", "B", "C", "D"]),
   value: z.boolean(),
 });
 
@@ -96,7 +96,7 @@ const ChangeHpCommand = z.object({
   type: z.literal("changeHp"),
   actorId: z.number().int().positive(),
   operation: z.enum(["increase", "decrease"]),
-  operand: z.number().int(),
+  operand: z.number().int().nonnegative(),
   allowKnockout: z.boolean().default(false),
 });
 
@@ -308,7 +308,7 @@ function compileControlSelfSwitch(
   cmd: z.infer<typeof ControlSelfSwitchCommand>,
   indent: number,
 ): EventCommand[] {
-  return [{ code: 123, indent, parameters: [[cmd.selfSwitchCh], cmd.value ? 0 : 1] }];
+  return [{ code: 123, indent, parameters: [cmd.selfSwitchCh, cmd.value ? 0 : 1] }];
 }
 
 function compileChangeGold(cmd: z.infer<typeof ChangeGoldCommand>, indent: number): EventCommand[] {
