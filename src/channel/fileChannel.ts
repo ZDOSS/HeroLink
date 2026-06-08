@@ -89,6 +89,9 @@ export class FileChannel {
 
     // Acquire command lock to prevent TOCTOU with plugin's clear
     const cmdLockAcquired = this.ensureCommandLock();
+    if (!cmdLockAcquired) {
+      throw new Error("sendCommand: could not acquire command lock after retries");
+    }
     try {
       const commands = this.readCommands();
       commands.push(cmd);
@@ -96,7 +99,7 @@ export class FileChannel {
       const filepath = join(this.channelDir, "commands.json");
       writeFileAtomic.sync(filepath, JSON.stringify(commands, null, 2), "utf-8");
     } finally {
-      if (cmdLockAcquired) this.releaseCommandLock();
+      this.releaseCommandLock();
     }
 
     return id;
@@ -110,6 +113,9 @@ export class FileChannel {
 
     const ids: string[] = [];
     const cmdLockAcquired = this.ensureCommandLock();
+    if (!cmdLockAcquired) {
+      throw new Error("sendCommands: could not acquire command lock after retries");
+    }
     try {
       const existingCommands = this.readCommands();
 
@@ -122,7 +128,7 @@ export class FileChannel {
       const filepath = join(this.channelDir, "commands.json");
       writeFileAtomic.sync(filepath, JSON.stringify(existingCommands, null, 2), "utf-8");
     } finally {
-      if (cmdLockAcquired) this.releaseCommandLock();
+      this.releaseCommandLock();
     }
 
     return ids;
@@ -148,12 +154,17 @@ export class FileChannel {
    * Read and clear responses (atomic read-then-delete).
    */
   consumeResponses(): BridgeResponse[] {
-    const responses = this.readResponses();
-    if (responses.length > 0) {
-      const filepath = join(this.channelDir, "responses.json");
-      writeFileAtomic.sync(filepath, "[]", "utf-8");
+    const lockAcquired = this.acquireResponseLock();
+    try {
+      const responses = this.readResponses();
+      if (responses.length > 0) {
+        const filepath = join(this.channelDir, "responses.json");
+        writeFileAtomic.sync(filepath, "[]", "utf-8");
+      }
+      return responses;
+    } finally {
+      if (lockAcquired) this.releaseResponseLock();
     }
-    return responses;
   }
 
   /**

@@ -110,3 +110,7 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     j. In any polling loop, if ANY required lock cannot be acquired, release
        all held locks and return. Never proceed with a read-modify-write on
        a shared file without holding its lock.
+    k. When a lock acquisition can fail (returns boolean), every call site
+       MUST check the return value and bail/thrown on failure. If a lock
+       controls access to a shared resource, proceeding unlocked defeats
+       the entire purpose of the lock.
