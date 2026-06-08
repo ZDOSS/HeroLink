@@ -96,3 +96,6 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     f. Is every user-facing input path (CLI, MCP, etc.) validated with the
        same Zod schema?  Never use TypeScript `as` casts as a substitute for
        runtime validation — they're a compile-time hint, not a runtime guard.
+    g. Does the code match its comments? If a comment says "unlocked fallback"
+       or "before releasing lock", the code must actually do that — fix the
+       code or fix the comment, but never have both disagree.

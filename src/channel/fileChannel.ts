@@ -180,6 +180,14 @@ export class FileChannel {
           } finally {
             this.releaseResponseLock();
           }
+        } else {
+          // Unlocked fallback: best-effort removal to prevent response leak
+          const currentResponses = this.readResponses();
+          const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
+          if (currentIndex !== -1) {
+            const remaining = currentResponses.filter((_, i) => i !== currentIndex);
+            writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
+          }
         }
         return responses[responseIndex];
       }

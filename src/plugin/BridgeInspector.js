@@ -288,10 +288,6 @@
       }
     }
 
-    if (haveLock) {
-      releaseResponseLock();
-    }
-
     // Clear commands BEFORE releasing lock to prevent replay of side-effectful
     // commands (PREVIEW_ITEM, PREVIEW_SKILL) on write failure.
     if (commands.length > 0) {
@@ -299,6 +295,10 @@
       if (!cleared) {
         console.error("BridgeInspector: Failed to clear commands.json; commands may be replayed.");
       }
+    }
+
+    if (haveLock) {
+      releaseResponseLock();
     }
   }
 

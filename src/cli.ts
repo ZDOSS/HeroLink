@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { Command } from "commander";
-import { z } from "zod";
 import { loadProject } from "./io/project.js";
 import { addPluginDraft } from "./tools/addPluginDraft.js";
 import { applyPatchTool } from "./tools/applyPatchTool.js";
@@ -10,6 +9,7 @@ import { getEntity } from "./tools/getEntity.js";
 import { getMapEvents } from "./tools/getMapEvents.js";
 import { getProjectStatus } from "./tools/getProjectStatus.js";
 import { inspectRuntime } from "./tools/inspectRuntime.js";
+import { InspectRuntimeInput } from "./tools/inspectRuntime.js";
 import { listBackups } from "./tools/listBackups.js";
 import { listEntities } from "./tools/listEntities.js";
 import { listMaps } from "./tools/listMaps.js";
@@ -17,6 +17,7 @@ import { listPendingChanges } from "./tools/listPendingChanges.js";
 import { listPlugins } from "./tools/listPlugins.js";
 import { listProjectData } from "./tools/listProjectData.js";
 import { previewEntity } from "./tools/previewEntity.js";
+import { PreviewEntityInput } from "./tools/previewEntity.js";
 import { rollbackLastPatchTool } from "./tools/rollbackLastPatchTool.js";
 import { searchEvents } from "./tools/searchEvents.js";
 import { searchNotes } from "./tools/searchNotes.js";
@@ -221,10 +222,17 @@ program
   .option("--timeout <ms>", "Timeout in milliseconds", "5000")
   .action(async (projectDir: string, opts: { refresh?: boolean; timeout: string }) => {
     const project = loadProject(projectDir);
-    const result = await inspectRuntime(project, {
+    const parsed = InspectRuntimeInput.safeParse({
       refresh: opts.refresh ?? false,
       timeoutMs: Number.parseInt(opts.timeout, 10),
     });
+    if (!parsed.success) {
+      process.stderr.write(
+        `Invalid input: ${parsed.error.issues.map((i) => i.message).join(", ")}\n`,
+      );
+      process.exit(1);
+    }
+    const result = await inspectRuntime(project, parsed.data);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   });
 
@@ -234,16 +242,18 @@ program
   .option("--timeout <ms>", "Timeout in milliseconds", "5000")
   .action(async (projectDir: string, type: string, id: string, opts: { timeout: string }) => {
     const project = loadProject(projectDir);
-    const parsedType = z.enum(["Item", "Skill"]).safeParse(type);
-    if (!parsedType.success) {
-      process.stderr.write(`Invalid type "${type}". Must be "Item" or "Skill".\n`);
-      process.exit(1);
-    }
-    const result = await previewEntity(project, {
-      type: parsedType.data,
+    const parsed = PreviewEntityInput.safeParse({
+      type,
       id: Number.parseInt(id, 10),
       timeoutMs: Number.parseInt(opts.timeout, 10),
     });
+    if (!parsed.success) {
+      process.stderr.write(
+        `Invalid input: ${parsed.error.issues.map((i) => i.message).join(", ")}\n`,
+      );
+      process.exit(1);
+    }
+    const result = await previewEntity(project, parsed.data);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   });
 
