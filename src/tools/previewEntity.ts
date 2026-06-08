@@ -29,14 +29,18 @@ export async function previewEntity(project: Project, input: z.infer<typeof Prev
   const channel = new FileChannel(project.projectDir);
 
   // Check if plugin is installed
-  const hasPlugin = project.model.plugins.some((p) => p.name === "BridgeInspector");
+  const hasPlugin = project.model.plugins.some((p) => p.name === "BridgeInspector" && p.status);
   if (!hasPlugin) {
+    const installed = project.model.plugins.some((p) => p.name === "BridgeInspector");
+    const message = installed
+      ? "BridgeInspector plugin is installed but disabled. Enable it in the plugin manager."
+      : "BridgeInspector plugin is not installed. Add it via add_plugin_draft first.";
     return {
       success: false,
       entityType: input.type,
       entityId: input.id,
       entityName: null,
-      error: "BridgeInspector plugin is not installed. Add it via add_plugin_draft first.",
+      error: message,
     };
   }
 

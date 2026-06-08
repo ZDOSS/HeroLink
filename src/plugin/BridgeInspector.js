@@ -186,10 +186,20 @@
       };
     }
 
-    // Switches and variables
-    if ($gameSwitches && $gameVariables) {
-      state.switches = $gameSwitches._data.slice(1); // Skip index 0 (null)
-      state.variables = $gameVariables._data.slice(1); // Skip index 0 (null)
+    // Switches and variables (use public API instead of private _data)
+    if ($gameSwitches && $gameVariables && $dataSystem) {
+      var switchCount = $dataSystem.switches.length;
+      var variableCount = $dataSystem.variables.length;
+
+      state.switches = [];
+      for (var i = 1; i < switchCount; i++) {
+        state.switches.push($gameSwitches.value(i));
+      }
+
+      state.variables = [];
+      for (var j = 1; j < variableCount; j++) {
+        state.variables.push($gameVariables.value(j));
+      }
     }
 
     return state;

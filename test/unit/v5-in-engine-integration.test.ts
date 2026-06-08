@@ -21,6 +21,26 @@ describe("v5 in-engine integration tools", () => {
       });
     });
 
+    it("returns unavailable if BridgeInspector plugin is disabled", async () => {
+      await withTempProject("sample-project", async (projectDir) => {
+        const project = loadProject(projectDir);
+
+        // Add BridgeInspector plugin as disabled
+        project.model.plugins.push({
+          name: "BridgeInspector",
+          status: false,
+          description: "Test plugin (disabled)",
+          parameters: {},
+        });
+
+        const result = await inspectRuntime(project, { refresh: false, timeoutMs: 1000 });
+
+        expect(result.available).toBe(false);
+        expect(result.state).toBeNull();
+        expect(result.error).toContain("disabled");
+      });
+    });
+
     it("returns error if plugin is installed but no runtime state exists", async () => {
       await withTempProject("sample-project", async (projectDir) => {
         const project = loadProject(projectDir);
@@ -88,6 +108,29 @@ describe("v5 in-engine integration tools", () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toContain("BridgeInspector plugin is not installed");
+      });
+    });
+
+    it("returns error if plugin is installed but disabled", async () => {
+      await withTempProject("sample-project", async (projectDir) => {
+        const project = loadProject(projectDir);
+
+        // Add BridgeInspector plugin as disabled
+        project.model.plugins.push({
+          name: "BridgeInspector",
+          status: false,
+          description: "Test plugin (disabled)",
+          parameters: {},
+        });
+
+        const result = await previewEntity(project, {
+          type: "Item",
+          id: 1,
+          timeoutMs: 1000,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("disabled");
       });
     });
 
