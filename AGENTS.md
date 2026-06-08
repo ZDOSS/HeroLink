@@ -103,3 +103,7 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        file in a pair, apply the SAME pattern to the other file in the pair.
        Example: if you add `responses.lock`, also add `commands.lock` — the
        plugin and bridge both race on both files.
+    i. When implementing a pattern (lock acquire/release, etc.), use the
+       EXACT same return-type and guard convention everywhere. If
+       `acquireResponseLock` returns `boolean` and guards `release` with
+       `if (lockAcquired)`, then `ensureCommandLock` must do the same.

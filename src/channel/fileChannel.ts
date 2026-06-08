@@ -88,7 +88,7 @@ export class FileChannel {
     const cmd: BridgeCommand = { id, command, args };
 
     // Acquire command lock to prevent TOCTOU with plugin's clear
-    this.ensureCommandLock();
+    const cmdLockAcquired = this.ensureCommandLock();
     try {
       const commands = this.readCommands();
       commands.push(cmd);
@@ -96,7 +96,7 @@ export class FileChannel {
       const filepath = join(this.channelDir, "commands.json");
       writeFileAtomic.sync(filepath, JSON.stringify(commands, null, 2), "utf-8");
     } finally {
-      this.releaseCommandLock();
+      if (cmdLockAcquired) this.releaseCommandLock();
     }
 
     return id;
@@ -109,7 +109,7 @@ export class FileChannel {
     this.ensureDirectory();
 
     const ids: string[] = [];
-    this.ensureCommandLock();
+    const cmdLockAcquired = this.ensureCommandLock();
     try {
       const existingCommands = this.readCommands();
 
@@ -122,7 +122,7 @@ export class FileChannel {
       const filepath = join(this.channelDir, "commands.json");
       writeFileAtomic.sync(filepath, JSON.stringify(existingCommands, null, 2), "utf-8");
     } finally {
-      this.releaseCommandLock();
+      if (cmdLockAcquired) this.releaseCommandLock();
     }
 
     return ids;
@@ -206,9 +206,14 @@ export class FileChannel {
 
     // Timeout: remove stale command from commands.json to prevent ghost previews
     const commandsPath = join(this.channelDir, "commands.json");
-    const staleCommands = this.readCommands();
-    const filtered = staleCommands.filter((c) => c.id !== commandId);
-    writeFileAtomic.sync(commandsPath, JSON.stringify(filtered, null, 2), "utf-8");
+    const timeoutLockAcquired = this.ensureCommandLock();
+    try {
+      const staleCommands = this.readCommands();
+      const filtered = staleCommands.filter((c) => c.id !== commandId);
+      writeFileAtomic.sync(commandsPath, JSON.stringify(filtered, null, 2), "utf-8");
+    } finally {
+      if (timeoutLockAcquired) this.releaseCommandLock();
+    }
 
     return null;
   }
@@ -277,16 +282,17 @@ export class FileChannel {
     }
   }
 
-  private ensureCommandLock(): void {
+  private ensureCommandLock(): boolean {
     const lockPath = this.commandsLockPath();
     for (let retry = 0; retry < 10; retry++) {
       try {
         mkdirSync(lockPath);
-        return;
+        return true;
       } catch {
         // Lock contended, retry
       }
     }
+    return false;
   }
 
   private releaseCommandLock(): void {

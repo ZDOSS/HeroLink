@@ -255,8 +255,12 @@
   // ==========================================================================
 
   function processCommands() {
+    var haveCmdLock = acquireCommandLock();
     var commands = readJson("commands.json");
-    if (!commands || !Array.isArray(commands)) return;
+    if (!commands || !Array.isArray(commands)) {
+      if (haveCmdLock) releaseCommandLock();
+      return;
+    }
 
     // Spin-wait for lock briefly before falling back to unlocked write
     var haveLock = acquireResponseLock();
@@ -310,17 +314,17 @@
         }
       }
 
-      // Clear commands BEFORE releasing response lock to prevent replay
-      // of side-effectful commands on write failure.
+      // Clear commands (command lock from top of function still held)
       if (commands.length > 0) {
-        acquireCommandLock();
         var cleared = writeJson("commands.json", []);
         if (!cleared) {
           console.error("BridgeInspector: Failed to clear commands.json; commands may be replayed.");
         }
-        releaseCommandLock();
       }
     } finally {
+      if (haveCmdLock) {
+        releaseCommandLock();
+      }
       if (haveLock) {
         releaseResponseLock();
       }
