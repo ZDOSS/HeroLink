@@ -17,12 +17,14 @@ import {
   GetEntityInput,
   GetMapEventsInput,
   GetProjectStatusInput,
+  InspectRuntimeInput,
   ListBackupsInput,
   ListEntitiesInput,
   ListMapsInput,
   ListPendingChangesInput,
   ListPluginsInput,
   ListProjectDataInput,
+  PreviewEntityInput,
   RollbackLastPatchInput,
   SearchEventsInput,
   SearchNotesInput,
@@ -42,12 +44,14 @@ import {
   getEntity,
   getMapEvents,
   getProjectStatus,
+  inspectRuntime,
   listBackups,
   listEntities,
   listMaps,
   listPendingChanges,
   listPlugins,
   listProjectData,
+  previewEntity,
   rollbackLastPatchTool,
   searchEvents,
   searchNotes,
@@ -218,6 +222,20 @@ const TOOL_DEFS = [
     inputSchema: AddPluginDraftInput,
     handler: (p: ReturnType<typeof loadProject>, args: unknown) =>
       addPluginDraft(p, p.staging, args as never),
+  },
+  {
+    name: "inspect_runtime",
+    description: "Inspect runtime state from a running game with BridgeInspector plugin",
+    inputSchema: InspectRuntimeInput,
+    handler: async (p: ReturnType<typeof loadProject>, args: unknown) =>
+      inspectRuntime(p, args as never),
+  },
+  {
+    name: "preview_entity",
+    description: "Preview an item or skill in a running game with BridgeInspector plugin",
+    inputSchema: PreviewEntityInput,
+    handler: async (p: ReturnType<typeof loadProject>, args: unknown) =>
+      previewEntity(p, args as never),
   },
 ] as const;
 

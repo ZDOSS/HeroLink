@@ -87,3 +87,13 @@ export {
   AddPluginDraftOutput,
   addPluginDraft,
 } from "./addPluginDraft.js";
+export {
+  InspectRuntimeInput,
+  InspectRuntimeOutput,
+  inspectRuntime,
+} from "./inspectRuntime.js";
+export {
+  PreviewEntityInput,
+  PreviewEntityOutput,
+  previewEntity,
+} from "./previewEntity.js";

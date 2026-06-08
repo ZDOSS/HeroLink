@@ -8,12 +8,14 @@ import { discardPendingChanges } from "./tools/discardPendingChanges.js";
 import { getEntity } from "./tools/getEntity.js";
 import { getMapEvents } from "./tools/getMapEvents.js";
 import { getProjectStatus } from "./tools/getProjectStatus.js";
+import { InspectRuntimeInput, inspectRuntime } from "./tools/inspectRuntime.js";
 import { listBackups } from "./tools/listBackups.js";
 import { listEntities } from "./tools/listEntities.js";
 import { listMaps } from "./tools/listMaps.js";
 import { listPendingChanges } from "./tools/listPendingChanges.js";
 import { listPlugins } from "./tools/listPlugins.js";
 import { listProjectData } from "./tools/listProjectData.js";
+import { PreviewEntityInput, previewEntity } from "./tools/previewEntity.js";
 import { rollbackLastPatchTool } from "./tools/rollbackLastPatchTool.js";
 import { searchEvents } from "./tools/searchEvents.js";
 import { searchNotes } from "./tools/searchNotes.js";
@@ -208,6 +210,48 @@ program
       status: opts.status,
       params: {},
     });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("inspect-runtime <projectDir>")
+  .description("Inspect runtime state from a running game")
+  .option("--refresh", "Send INSPECT command to refresh state")
+  .option("--timeout <ms>", "Timeout in milliseconds", "5000")
+  .action(async (projectDir: string, opts: { refresh?: boolean; timeout: string }) => {
+    const project = loadProject(projectDir);
+    const parsed = InspectRuntimeInput.safeParse({
+      refresh: opts.refresh ?? false,
+      timeoutMs: Number.parseInt(opts.timeout, 10),
+    });
+    if (!parsed.success) {
+      process.stderr.write(
+        `Invalid input: ${parsed.error.issues.map((i) => i.message).join(", ")}\n`,
+      );
+      process.exit(1);
+    }
+    const result = await inspectRuntime(project, parsed.data);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  });
+
+program
+  .command("preview-entity <projectDir> <type> <id>")
+  .description("Preview an item or skill in a running game")
+  .option("--timeout <ms>", "Timeout in milliseconds", "5000")
+  .action(async (projectDir: string, type: string, id: string, opts: { timeout: string }) => {
+    const project = loadProject(projectDir);
+    const parsed = PreviewEntityInput.safeParse({
+      type,
+      id: Number.parseInt(id, 10),
+      timeoutMs: Number.parseInt(opts.timeout, 10),
+    });
+    if (!parsed.success) {
+      process.stderr.write(
+        `Invalid input: ${parsed.error.issues.map((i) => i.message).join(", ")}\n`,
+      );
+      process.exit(1);
+    }
+    const result = await previewEntity(project, parsed.data);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   });
 

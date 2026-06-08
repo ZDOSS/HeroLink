@@ -63,3 +63,64 @@ RPG MAKER MV SPECIFIC RULES:
 25. COMPLETE DIFF OUTPUT: When implementing diff/preview tools, include ALL write plan types (jsonPatch,
     pluginConfig, pluginFile). Do not silently omit any changes. Users need to see the complete picture
     before applying.
+
+BUG FIX DISCIPLINE (prevent recurring mistakes):
+26. GREP FOR THE SAME BUG: When fixing a bug found in one function, grep the entire project for
+    the same pattern and fix ALL occurrences. Example: if writeJson return value is unchecked in
+    processCommands, grep for all writeJson calls and check every one.
+27. VERIFY FIXES DON'T INTRODUCE NEW BUGS: After applying a fix, trace the full code path of the
+    changed function. Ask: "Could this fix create a race condition? Could it drop data? Could it
+    return a misleading success?" Think about what OTHER process/thread might be doing concurrently.
+28. CONVENTION SELF-CHECK: Before committing, re-read your own diff. For every write operation,
+    verify it matches the convention used by every OTHER write in the same file. If the file uses
+    writeFileAtomic.sync, don't use writeFileSync.
+
+v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
+29. FILE-BASED IPC RULES: When implementing file-based inter-process communication:
+    a. Every write function that returns success/failure MUST have its return
+       value checked at every call site — grep for all callers, not just one.
+    b. Cross-process read-modify-write MUST use a lock file (atomic mkdir)
+       to prevent TOCTOU races between processes.
+    c. Every timeout path MUST clean up its side effects (remove stale commands,
+       release locks, etc.) before returning.
+    d. Every deprecated/optional API (process.mainModule, etc.) MUST have a
+       null guard before property access.
+    e. Every hardcoded value (fixture names, IDs, etc.) in tests MUST be
+       derived from the project model instead.
+30. FIX COMPLETENESS CHECKLIST — before committing any fix, verify:
+    a. Did I check every call site for the same pattern? (grep)
+    b. Did my fix create a new race condition or failure mode? (lifecycle trace)
+    c. Does every file write match the surrounding code's conventions? (diff check)
+    d. Did I clean up all failure paths (timeouts, errors)? (edge case review)
+    e. Is every lock/release pair wrapped in try/finally to prevent leaks?
+    f. Is every user-facing input path (CLI, MCP, etc.) validated with the
+       same Zod schema?  Never use TypeScript `as` casts as a substitute for
+       runtime validation — they're a compile-time hint, not a runtime guard.
+    g. Does the code match its comments? If a comment says "unlocked fallback"
+       or "before releasing lock", the code must actually do that — fix the
+       code or fix the comment, but never have both disagree.
+    h. When adding a lock or other cross-process coordination to one shared
+       file in a pair, apply the SAME pattern to the other file in the pair.
+       Example: if you add `responses.lock`, also add `commands.lock` — the
+       plugin and bridge both race on both files.
+    i. When implementing a pattern (lock acquire/release, etc.), use the
+       EXACT same return-type and guard convention everywhere. If
+       `acquireResponseLock` returns `boolean` and guards `release` with
+       `if (lockAcquired)`, then `ensureCommandLock` must do the same.
+    j. In any polling loop, if ANY required lock cannot be acquired, release
+       all held locks and return. Never proceed with a read-modify-write on
+       a shared file without holding its lock.
+    k. When a lock acquisition can fail (returns boolean), every call site
+       MUST check the return value on the VERY NEXT LINE and bail/throw
+       before the protected block. Never execute a write under a lock that
+       was never acquired — proceeding unlocked defeats the entire purpose
+       of the lock.
+    l. Multi-step write sequences: when step N's write fails, all subsequent
+       writes that depend on step N's success must be skipped or rolled back.
+    m. After every getChannelPath() call, null-check the result before
+       passing it to any fs.* API.
+    n. Never use a busy-spin loop (retries without delay) as a lock
+       acquisition strategy. It behaves identically to a single try and
+       creates false confidence. Either use a real retry with exponential
+       backoff or try once and fail immediately — there is no middle
+       ground that buys you anything.
