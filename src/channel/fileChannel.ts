@@ -155,6 +155,10 @@ export class FileChannel {
    */
   consumeResponses(): BridgeResponse[] {
     const lockAcquired = this.acquireResponseLock();
+    if (!lockAcquired) {
+      // Lock contended — return current responses without clearing
+      return this.readResponses();
+    }
     try {
       const responses = this.readResponses();
       if (responses.length > 0) {
@@ -163,7 +167,7 @@ export class FileChannel {
       }
       return responses;
     } finally {
-      if (lockAcquired) this.releaseResponseLock();
+      this.releaseResponseLock();
     }
   }
 
@@ -218,12 +222,15 @@ export class FileChannel {
     // Timeout: remove stale command from commands.json to prevent ghost previews
     const commandsPath = join(this.channelDir, "commands.json");
     const timeoutLockAcquired = this.ensureCommandLock();
+    if (!timeoutLockAcquired) {
+      return null;
+    }
     try {
       const staleCommands = this.readCommands();
       const filtered = staleCommands.filter((c) => c.id !== commandId);
       writeFileAtomic.sync(commandsPath, JSON.stringify(filtered, null, 2), "utf-8");
     } finally {
-      if (timeoutLockAcquired) this.releaseCommandLock();
+      this.releaseCommandLock();
     }
 
     return null;
