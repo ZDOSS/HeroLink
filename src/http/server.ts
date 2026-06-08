@@ -77,11 +77,12 @@ const MUTATING_TOOLS = new Set([
 let mutationQueue: Promise<void> = Promise.resolve();
 
 async function serializeMutation<T>(fn: () => Promise<T>): Promise<T> {
-  await mutationQueue;
-  let resolveNext: () => void = () => {};
+  const previousQueue = mutationQueue;
+  let resolveNext!: () => void;
   mutationQueue = new Promise<void>((resolve) => {
     resolveNext = resolve;
   });
+  await previousQueue;
   try {
     return await fn();
   } finally {

@@ -6,9 +6,10 @@ describe("HTTP server", () => {
     await withTempProject("sample-project", async (projectDir) => {
       const oldDir = process.env.RPGMV_PROJECT_DIR;
       process.env.RPGMV_PROJECT_DIR = projectDir;
+      let fastify: Awaited<ReturnType<typeof import("../../src/http/server.js")["startHttpServer"]>>;
       try {
         const { startHttpServer } = await import("../../src/http/server.js");
-        const fastify = await startHttpServer(0, "127.0.0.1");
+        fastify = await startHttpServer(0, "127.0.0.1");
         const address = fastify.server.address();
         const port = typeof address === "object" && address ? address.port : 0;
 
@@ -17,7 +18,6 @@ describe("HTTP server", () => {
         expect(data.tools.length).toBeGreaterThan(10);
         expect(data.tools.some((t) => t.name === "get_project_status")).toBe(true);
 
-        // Test a specific tool
         const statusResp = await fetch(`http://127.0.0.1:${port}/tools/get_project_status`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -26,9 +26,8 @@ describe("HTTP server", () => {
         const statusData = await statusResp.json() as { ok: boolean; result: { engine: string } };
         expect(statusData.ok).toBe(true);
         expect(statusData.result.engine).toBe("mv");
-
-        await fastify.close();
       } finally {
+        if (fastify) await fastify.close();
         process.env.RPGMV_PROJECT_DIR = oldDir;
       }
     });
