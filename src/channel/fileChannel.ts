@@ -161,10 +161,15 @@ export class FileChannel {
       const responseIndex = responses.findIndex((r) => r.id === commandId);
 
       if (responseIndex !== -1) {
-        // Acquire lock before removing the response to prevent TOCTOU
-        // with the plugin's concurrent read-then-append.
+        // Retry lock acquisition up to 3 times before falling back to
+        // unlocked removal (better to risk TOCTOU than leak responses).
         const filepath = join(this.channelDir, "responses.json");
-        if (this.acquireResponseLock()) {
+        let lockAcquired = this.acquireResponseLock();
+        for (let retry = 0; !lockAcquired && retry < 3; retry++) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          lockAcquired = this.acquireResponseLock();
+        }
+        if (lockAcquired) {
           const currentResponses = this.readResponses();
           const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
           if (currentIndex !== -1) {

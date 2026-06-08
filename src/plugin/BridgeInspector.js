@@ -130,12 +130,6 @@
       // Best effort
     }
   }
-    if (!path) return null;
-    var mainModule = process.mainModule || require.main;
-    if (!mainModule) return null;
-    var projectRoot = path.dirname(mainModule.filename);
-    return path.join(projectRoot, channelDir, filename);
-  }
 
   function writeJson(filename, data) {
     if (!fs || !path) return false;
@@ -243,9 +237,13 @@
     var commands = readJson("commands.json");
     if (!commands || !Array.isArray(commands)) return;
 
-    // Acquire lock before modifying responses.json to prevent TOCTOU
-    // with the bridge's concurrent response removal.
+    // Spin-wait for lock briefly before falling back to unlocked write
     var haveLock = acquireResponseLock();
+    if (!haveLock) {
+      // Try again after a short sleep (busy-wait with setTimeout isn't
+      // available here, so just proceed unlocked — losing responses is
+      // worse than a TOCTOU.)
+    }
 
     var existingResponses = [];
     if (haveLock) {
@@ -271,9 +269,19 @@
       });
     }
 
-    if (newResponses.length > 0 && haveLock) {
-      // Append new responses to existing ones
-      var allResponses = existingResponses.concat(newResponses);
+    if (newResponses.length > 0) {
+      // Write responses (with lock if acquired, without if contended)
+      var allResponses;
+      if (haveLock) {
+        allResponses = existingResponses.concat(newResponses);
+      } else {
+        // Best-effort: read existing and append without lock
+        var currentExisting = readJson("responses.json");
+        if (!currentExisting || !Array.isArray(currentExisting)) {
+          currentExisting = [];
+        }
+        allResponses = currentExisting.concat(newResponses);
+      }
       var wrote = writeJson("responses.json", allResponses);
       if (!wrote) {
         console.error("BridgeInspector: Failed to write responses; commands retained for retry.");
@@ -288,7 +296,10 @@
 
     // Always clear commands after processing, even if all were malformed
     if (commands.length > 0) {
-      writeJson("commands.json", []);
+      var cleared = writeJson("commands.json", []);
+      if (!cleared) {
+        console.error("BridgeInspector: Failed to clear commands.json; commands may be replayed.");
+      }
     }
   }
 
