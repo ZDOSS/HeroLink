@@ -302,15 +302,12 @@ export class FileChannel {
 
   private ensureCommandLock(): boolean {
     const lockPath = this.commandsLockPath();
-    for (let retry = 0; retry < 10; retry++) {
-      try {
-        mkdirSync(lockPath);
-        return true;
-      } catch {
-        // Lock contended, retry
-      }
+    try {
+      mkdirSync(lockPath);
+      return true;
+    } catch {
+      return false;
     }
-    return false;
   }
 
   private releaseCommandLock(): void {

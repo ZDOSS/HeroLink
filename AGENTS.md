@@ -119,3 +119,8 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        writes that depend on step N's success must be skipped or rolled back.
     m. After every getChannelPath() call, null-check the result before
        passing it to any fs.* API.
+    n. Never use a busy-spin loop (retries without delay) as a lock
+       acquisition strategy. It behaves identically to a single try and
+       creates false confidence. Either use a real retry with exponential
+       backoff or try once and fail immediately — there is no middle
+       ground that buys you anything.
