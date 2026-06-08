@@ -107,3 +107,6 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        EXACT same return-type and guard convention everywhere. If
        `acquireResponseLock` returns `boolean` and guards `release` with
        `if (lockAcquired)`, then `ensureCommandLock` must do the same.
+    j. In any polling loop, if ANY required lock cannot be acquired, release
+       all held locks and return. Never proceed with a read-modify-write on
+       a shared file without holding its lock.

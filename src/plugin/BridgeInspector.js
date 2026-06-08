@@ -256,27 +256,27 @@
 
   function processCommands() {
     var haveCmdLock = acquireCommandLock();
+    if (!haveCmdLock) {
+      // Lock contended; defer to next poll cycle (1-2 frames).
+      return;
+    }
     var commands = readJson("commands.json");
     if (!commands || !Array.isArray(commands)) {
-      if (haveCmdLock) releaseCommandLock();
+      releaseCommandLock();
       return;
     }
 
-    // Spin-wait for lock briefly before falling back to unlocked write
     var haveLock = acquireResponseLock();
     if (!haveLock) {
-      // Try again after a short sleep (busy-wait with setTimeout isn't
-      // available here, so just proceed unlocked — losing responses is
-      // worse than a TOCTOU.)
+      // Response file contended — release command lock and defer.
+      releaseCommandLock();
+      return;
     }
 
     try {
-      var existingResponses = [];
-      if (haveLock) {
-        existingResponses = readJson("responses.json");
-        if (!existingResponses || !Array.isArray(existingResponses)) {
-          existingResponses = [];
-        }
+      var existingResponses = readJson("responses.json");
+      if (!existingResponses || !Array.isArray(existingResponses)) {
+        existingResponses = [];
       }
 
       var newResponses = [];
@@ -296,18 +296,7 @@
       }
 
       if (newResponses.length > 0) {
-        // Write responses (with lock if acquired, without if contended)
-        var allResponses;
-        if (haveLock) {
-          allResponses = existingResponses.concat(newResponses);
-        } else {
-          // Best-effort: read existing and append without lock
-          var currentExisting = readJson("responses.json");
-          if (!currentExisting || !Array.isArray(currentExisting)) {
-            currentExisting = [];
-          }
-          allResponses = currentExisting.concat(newResponses);
-        }
+        var allResponses = existingResponses.concat(newResponses);
         var wrote = writeJson("responses.json", allResponses);
         if (!wrote) {
           console.error("BridgeInspector: Failed to write responses.");
@@ -322,12 +311,8 @@
         }
       }
     } finally {
-      if (haveCmdLock) {
-        releaseCommandLock();
-      }
-      if (haveLock) {
-        releaseResponseLock();
-      }
+      releaseCommandLock();
+      releaseResponseLock();
     }
   }
 
