@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { join } from "node:path";
 import { withTempProject } from "../helpers/withTempProject.js";
 
 describe("HTTP server", () => {

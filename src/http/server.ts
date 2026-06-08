@@ -58,6 +58,37 @@ import {
   validateProjectRefs,
 } from "../tools/index.js";
 
+const MUTATING_TOOLS = new Set([
+  "create_item_draft",
+  "create_skill_draft",
+  "create_entity_draft",
+  "update_entity_draft",
+  "create_common_event_draft",
+  "create_map_event_draft",
+  "update_map_event_draft",
+  "set_plugin_param_draft",
+  "add_plugin_draft",
+  "discard_pending_changes",
+  "apply_patch",
+  "rollback_last_patch",
+]);
+
+// Simple async mutex for serializing mutation requests
+let mutationQueue: Promise<void> = Promise.resolve();
+
+async function serializeMutation<T>(fn: () => Promise<T>): Promise<T> {
+  await mutationQueue;
+  let resolveNext: () => void = () => {};
+  mutationQueue = new Promise<void>((resolve) => {
+    resolveNext = resolve;
+  });
+  try {
+    return await fn();
+  } finally {
+    resolveNext();
+  }
+}
+
 interface ToolDef {
   name: string;
   description: string;
@@ -241,8 +272,7 @@ export async function startHttpServer(port = 8866, host = "127.0.0.1") {
 
   const projectDir = process.env.RPGMV_PROJECT_DIR;
   if (!projectDir) {
-    logger.error("RPGMV_PROJECT_DIR environment variable not set");
-    process.exit(1);
+    throw new Error("RPGMV_PROJECT_DIR environment variable not set");
   }
   const project = loadProject(projectDir);
 
@@ -260,7 +290,10 @@ export async function startHttpServer(port = 8866, host = "127.0.0.1") {
         });
       }
       try {
-        const result = await def.handler(project, parsed.data);
+        const handle = () => def.handler(project, parsed.data);
+        const result = MUTATING_TOOLS.has(def.name)
+          ? await serializeMutation(handle as () => Promise<unknown>)
+          : await handle();
         return { ok: true, result };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -273,4 +306,14 @@ export async function startHttpServer(port = 8866, host = "127.0.0.1") {
   await fastify.listen({ port, host });
   logger.info({ port, host }, "HTTP server started");
   return fastify;
+}
+
+// CLI entry point: auto-start when run directly
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))) {
+  const port = Number(process.env.HTTP_PORT ?? 8866);
+  const host = process.env.HTTP_HOST ?? "127.0.0.1";
+  startHttpServer(port, host).catch((err) => {
+    logger.error({ err }, "Failed to start HTTP server");
+    process.exit(1);
+  });
 }
