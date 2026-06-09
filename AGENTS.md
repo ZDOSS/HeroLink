@@ -124,3 +124,18 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        creates false confidence. Either use a real retry with exponential
        backoff or try once and fail immediately — there is no middle
        ground that buys you anything.
+    o. When adding a negative test for a validation constraint, use an
+       input that specifically discriminates the NEW constraint from the
+       OLD one. If the test input would have been rejected by both,
+       the test proves nothing.
+    p. When adding validation to one command schema's field (e.g.
+       name: z.string().min(1)), apply the SAME validation to all
+       sibling schemas with the same field name. Inconsistency here
+       is silent data corruption.
+    q. When implementing RPG Maker event command opcodes, verify the
+       parameter order against the actual RPG Maker MV/MZ source
+       (Game_Interpreter). Parameter order is positional and wrong
+       order produces silent game corruption with no error.
+    r. Electron main processes must use .cjs extension when the project
+       uses "type": "module" in package.json. .js files in ESM projects
+       cannot use require() and will crash.
