@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { type Project, loadProject } from "../io/project.js";
 import { logger } from "../log.js";
 import {
@@ -281,8 +282,12 @@ export async function startHttpServer(port = 8866, host = "127.0.0.1") {
     return { tools: TOOL_DEFS.map((t) => ({ name: t.name, description: t.description })) };
   });
 
+  fastify.get("/api/tools", async () => {
+    return { tools: TOOL_DEFS.map((t) => ({ name: t.name, description: t.description })) };
+  });
+
   for (const def of TOOL_DEFS) {
-    fastify.post(`/tools/${def.name}`, async (request, reply) => {
+    const routeHandler = async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = def.inputSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({
@@ -301,7 +306,9 @@ export async function startHttpServer(port = 8866, host = "127.0.0.1") {
         logger.error({ tool: def.name, error: message }, "Tool error");
         return reply.status(500).send({ ok: false, error: message });
       }
-    });
+    };
+    fastify.post(`/tools/${def.name}`, routeHandler);
+    fastify.post(`/api/tools/${def.name}`, routeHandler);
   }
 
   await fastify.listen({ port, host });
