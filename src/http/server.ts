@@ -281,8 +281,32 @@ export async function startHttpServer(port = 8866, host = "127.0.0.1") {
     return { tools: TOOL_DEFS.map((t) => ({ name: t.name, description: t.description })) };
   });
 
+  fastify.get("/api/tools", async () => {
+    return { tools: TOOL_DEFS.map((t) => ({ name: t.name, description: t.description })) };
+  });
+
   for (const def of TOOL_DEFS) {
     fastify.post(`/tools/${def.name}`, async (request, reply) => {
+      const parsed = def.inputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          ok: false,
+          error: parsed.error.issues.map((i) => i.message).join("; "),
+        });
+      }
+      try {
+        const handle = () => def.handler(project, parsed.data);
+        const result = MUTATING_TOOLS.has(def.name)
+          ? await serializeMutation(handle as () => Promise<unknown>)
+          : await handle();
+        return { ok: true, result };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error({ tool: def.name, error: message }, "Tool error");
+        return reply.status(500).send({ ok: false, error: message });
+      }
+    });
+    fastify.post(`/api/tools/${def.name}`, async (request, reply) => {
       const parsed = def.inputSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({
