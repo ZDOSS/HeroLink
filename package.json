@@ -19,7 +19,7 @@
     "check": "npm run lint && npm run typecheck && npm run test:coverage",
     "generate-fixtures": "tsx scripts/generate-fixtures.ts",
     "http": "tsx src/http/server.ts",
-    "electron": "electron electron/main.js"
+    "electron": "electron electron/main.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
