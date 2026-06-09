@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("heroLinkAPI", {
+  rendererReady: () => ipcRenderer.invoke("renderer-ready"),
   selectProjectFolder: () => ipcRenderer.invoke("select-project-folder"),
   getConfig: () => ipcRenderer.invoke("get-config"),
   setConfig: (partial) => ipcRenderer.invoke("set-config", partial),
@@ -18,5 +19,4 @@ contextBridge.exposeInMainWorld("heroLinkAPI", {
     ipcRenderer.on("server-status-changed", handler);
     return () => ipcRenderer.removeListener("server-status-changed", handler);
   },
-  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 });

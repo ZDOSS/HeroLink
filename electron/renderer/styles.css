@@ -19,6 +19,30 @@
   --sidebar-width: 220px;
 }
 
+/* vendored Tailwind utility classes */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1; }
+.h-screen { height: 100vh; }
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.p-0 { padding: 0; }
+.p-6 { padding: 24px; }
+.m-0 { margin: 0; }
+.text-xs { font-size: 12px; }
+.text-lg { font-size: 18px; }
+.font-bold { font-weight: 700; }
+.hidden { display: none; }
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --border: #2a2a40;
+  --sidebar-width: 220px;
+}
+
 * { box-sizing: border-box; }
 
 body {

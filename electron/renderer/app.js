@@ -1,5 +1,6 @@
 const App = {
   async init() {
+    await window.heroLinkAPI.rendererReady();
     const config = await window.heroLinkAPI.getConfig();
     HeroLinkState.set("config", config);
     HeroLinkState.set("currentView", config.lastView || "dashboard");

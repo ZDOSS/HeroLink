@@ -8,6 +8,8 @@ const store = require("./store.cjs");
 
 let mainWindow = null;
 let serverProcess = null;
+const pendingLogs = [];
+let rendererReady = false;
 
 const isPackaged = app.isPackaged;
 const projectRoot = isPackaged ? process.resourcesPath : path.join(__dirname, "..");
@@ -96,9 +98,12 @@ function stopBridgeServer() {
 }
 
 function sendLog(level, message) {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("server-log", { level, message, timestamp: new Date().toISOString() });
+  const entry = { level, message, timestamp: new Date().toISOString() };
+  if (!rendererReady || !mainWindow || mainWindow.isDestroyed()) {
+    pendingLogs.push(entry);
+    return;
   }
+  mainWindow.webContents.send("server-log", entry);
 }
 
 function notifyServerStatus(running) {
@@ -106,6 +111,19 @@ function notifyServerStatus(running) {
     const config = store.get();
     mainWindow.webContents.send("server-status-changed", { running, port: config.port });
   }
+}
+
+let saveBoundsTimer = null;
+
+function saveBoundsDebounced() {
+  clearTimeout(saveBoundsTimer);
+  saveBoundsTimer = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const [w, h] = mainWindow.getSize();
+      const [x, y] = mainWindow.getPosition();
+      store.set({ windowBounds: { x, y, width: w, height: h } });
+    }
+  }, 400);
 }
 
 function createWindow() {
@@ -129,21 +147,8 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
-  mainWindow.on("resize", () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      const [w, h] = mainWindow.getSize();
-      const [x, y] = mainWindow.getPosition();
-      store.set({ windowBounds: { x, y, width: w, height: h } });
-    }
-  });
-
-  mainWindow.on("move", () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      const [w, h] = mainWindow.getSize();
-      const [x, y] = mainWindow.getPosition();
-      store.set({ windowBounds: { x, y, width: w, height: h } });
-    }
-  });
+  mainWindow.on("resize", saveBoundsDebounced);
+  mainWindow.on("move", saveBoundsDebounced);
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -151,6 +156,11 @@ function createWindow() {
 }
 
 function registerIpcHandlers() {
+  ipcMain.handle("renderer-ready", () => {
+    rendererReady = true;
+    pendingLogs.splice(0).forEach((e) => mainWindow?.webContents.send("server-log", e));
+  });
+
   ipcMain.handle("select-project-folder", async () => {
     if (!mainWindow) return null;
     const result = await dialog.showOpenDialog(mainWindow, {
