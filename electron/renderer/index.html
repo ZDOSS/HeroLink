@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; connect-src 'self' http://localhost:*">
+  <title>HeroLink</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="m-0 p-0 overflow-hidden">
+  <div id="app" class="flex flex-col h-screen">
+    <div id="header"></div>
+    <div class="flex flex-1 overflow-hidden">
+      <div id="sidebar"></div>
+      <main id="main-content" class="flex-1 overflow-y-auto p-6"></main>
+    </div>
+  </div>
+  <div id="modal-root" class="hidden"></div>
+  <script src="state.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
