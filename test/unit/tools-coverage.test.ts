@@ -215,10 +215,19 @@ describe("searchEvents — scope coverage", () => {
   });
 });
 
+const stagingCleanups: string[] = [];
+
+afterEach(() => {
+  for (const dir of stagingCleanups) {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
+  }
+  stagingCleanups.length = 0;
+});
+
 function freshStaging(): Staging {
   const dir = mkdtempSync(join(tmpdir(), "staging-test-"));
-  const s = new Staging(dir);
-  return s;
+  stagingCleanups.push(dir);
+  return new Staging(dir);
 }
 
 describe("discardPendingChanges", () => {
@@ -249,7 +258,9 @@ describe("createSkillDraft", () => {
       });
       expect(result.changeId).toBeDefined();
       expect(result.preview.entityType).toBe("Skill");
-      expect(result.preview.fields.id).toBe(4); // sample has 3 skills, so next is 4
+      const existing = project.model.listEntities("Skill");
+      const expectedNextId = existing.reduce((m, e) => Math.max(m, e.id), 0) + 1;
+      expect(result.preview.fields.id).toBe(expectedNextId);
       expect(result.validation.ok).toBe(true);
     });
   });
