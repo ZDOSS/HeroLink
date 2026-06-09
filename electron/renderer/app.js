@@ -9,9 +9,6 @@ const App = {
 
     window.heroLinkAPI.onServerLog((entry) => {
       Logs.append(entry);
-      if (HeroLinkState.get("currentView") === "logs") {
-        App.renderView("logs");
-      }
     });
 
     window.heroLinkAPI.onServerStatusChanged((status) => {
@@ -55,6 +52,7 @@ const App = {
         break;
       case "logs":
         main.innerHTML = Logs.render();
+        Logs.attach();
         break;
       default:
         main.innerHTML = await Dashboard.render();

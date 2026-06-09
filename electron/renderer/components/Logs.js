@@ -6,15 +6,6 @@ const Logs = {
     const filtered = this.filter === "all" ? logs : logs.filter((l) => l.level === this.filter);
     const filterLabels = { all: "All", info: "Info", warn: "Warn", error: "Error" };
 
-    const logLines = filtered.length === 0
-      ? '<div style="padding:12px;color:var(--text-muted);text-align:center;">No logs yet.</div>'
-      : filtered
-          .map((l) => {
-            const time = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : "";
-            return `<div class="log-entry ${l.level}"><span class="time">[${time}]</span> ${this.escapeHtml(l.message)}</div>`;
-          })
-          .join("");
-
     return `
       <h2 style="margin:0 0 20px;font-size:18px;font-weight:600;">Logs</h2>
 
@@ -27,24 +18,56 @@ const Logs = {
         <button class="btn btn-sm btn-ghost" onclick="Logs.copy()">Copy</button>
       </div>
 
-      <pre class="log-container" id="log-container">${logLines}</pre>
+      <pre class="log-container" id="log-container"></pre>
       <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
           <input type="checkbox" id="log-autoscroll" checked style="width:auto;"> Auto-scroll
         </label>
-        <span style="font-size:11px;color:var(--text-muted);">${filtered.length} entries (${logs.length} total)</span>
+        <span style="font-size:11px;color:var(--text-muted);" id="log-counter">${filtered.length} entries (${logs.length} total)</span>
       </div>
     `;
   },
 
+  _populateContainer() {
+    const container = document.getElementById("log-container");
+    if (!container) return;
+    const logs = HeroLinkState.get("logs");
+    const filtered = this.filter === "all" ? logs : logs.filter((l) => l.level === this.filter);
+    container.innerHTML = filtered.length === 0
+      ? '<div style="padding:12px;color:var(--text-muted);text-align:center;">No logs yet.</div>'
+      : filtered.map((l) => {
+          const time = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : "";
+          return `<div class="log-entry ${l.level}"><span class="time">[${time}]</span> ${this.escapeHtml(l.message)}</div>`;
+        }).join("");
+    this._scrollToBottom();
+  },
+
+  _scrollToBottom() {
+    const container = document.getElementById("log-container");
+    const checkbox = document.getElementById("log-autoscroll");
+    if (container && checkbox && checkbox.checked) {
+      container.scrollTop = container.scrollHeight;
+    }
+  },
+
+  _updateCounter() {
+    const el = document.getElementById("log-counter");
+    if (!el) return;
+    const logs = HeroLinkState.get("logs");
+    const filtered = this.filter === "all" ? logs : logs.filter((l) => l.level === this.filter);
+    el.textContent = `${filtered.length} entries (${logs.length} total)`;
+  },
+
   setFilter(key) {
     this.filter = key;
-    App.renderView("logs");
+    this._populateContainer();
+    this._updateCounter();
   },
 
   clear() {
     HeroLinkState.set("logs", []);
-    App.renderView("logs");
+    this._populateContainer();
+    this._updateCounter();
   },
 
   copy() {
@@ -55,9 +78,25 @@ const Logs = {
 
   append(entry) {
     const logs = HeroLinkState.get("logs");
+    const matchesFilter = this.filter === "all" || entry.level === this.filter;
     logs.push(entry);
     if (logs.length > 1000) logs.splice(0, logs.length - 1000);
     HeroLinkState.set("logs", logs);
+
+    const container = document.getElementById("log-container");
+    if (container && matchesFilter) {
+      const time = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : "";
+      const div = document.createElement("div");
+      div.className = `log-entry ${entry.level}`;
+      div.innerHTML = `<span class="time">[${time}]</span> ${this.escapeHtml(entry.message)}`;
+      container.appendChild(div);
+      this._scrollToBottom();
+    }
+    this._updateCounter();
+  },
+
+  attach() {
+    this._populateContainer();
   },
 
   escapeHtml(str) {

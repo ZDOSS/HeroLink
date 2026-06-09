@@ -4,12 +4,20 @@ const BridgeAPI = {
     return `http://127.0.0.1:${port}`;
   },
 
+  _clean(obj) {
+    const r = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v !== undefined) r[k] = v;
+    }
+    return r;
+  },
+
   async callTool(toolName, payload = {}) {
     try {
       const res = await fetch(`${this.baseUrl()}/api/tools/${toolName}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(this._clean(payload)),
       });
       if (!res.ok) {
         const text = await res.text();
@@ -42,7 +50,7 @@ const BridgeAPI = {
   },
 
   async discardPendingChanges(changeIds) {
-    return this.callTool("discard_pending_changes", { changeIds });
+    return this.callTool("discard_pending_changes", changeIds ? { changeIds } : {});
   },
 
   async getBackups() {

@@ -43,7 +43,7 @@ const Dashboard = {
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;">
             ${entityTypes.map(([type, count]) => `
-              <div class="card count-card card-hover" onclick="App.navigateTo('entities?type=${type}')" style="cursor:pointer;">
+              <div class="card count-card" style="cursor:default;">
                 <div class="count">${count}</div>
                 <div class="label">${type}s</div>
               </div>
