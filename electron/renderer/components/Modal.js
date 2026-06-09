@@ -35,6 +35,8 @@ const Modal = {
   async confirm() {
     if (this._onConfirm) await this._onConfirm();
     this._onCancel = null;
+    const root = document.getElementById("modal-root");
+    if (root && !root.classList.contains("hidden") && root.children.length > 0) return;
     this.close();
   },
 
