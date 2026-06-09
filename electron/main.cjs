@@ -1,127 +1,256 @@
-const { app, BrowserWindow } = require("electron");
+const {
+  app, BrowserWindow, dialog, ipcMain,
+} = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
+const { existsSync } = require("node:fs");
+const store = require("./store.cjs");
 
 let mainWindow = null;
 let serverProcess = null;
+const pendingLogs = [];
+let rendererReady = false;
 
 const isPackaged = app.isPackaged;
 const projectRoot = isPackaged ? process.resourcesPath : path.join(__dirname, "..");
 
-function startBridgeServer() {
+function buildServerEnv(projectPath, port, host) {
+  const env = { ...process.env };
+  if (projectPath) env.RPGMV_PROJECT_DIR = projectPath;
+  env.HTTP_PORT = String(port || 8866);
+  env.HTTP_HOST = host || "127.0.0.1";
+  return env;
+}
+
+function startBridgeServer(projectPath, port, host) {
   return new Promise((resolve, reject) => {
+    if (serverProcess) {
+      serverProcess.kill();
+      serverProcess = null;
+    }
+
     const serverPath = path.join(projectRoot, "src", "http", "server.ts");
+    const env = buildServerEnv(projectPath, port, host);
+
+    let started = false;
+    let proc;
 
     if (isPackaged) {
       const jsPath = path.join(projectRoot, "dist", "src", "http", "server.js");
-      serverProcess = spawn(process.execPath, [jsPath], {
-        env: { ...process.env, HTTP_PORT: "8866", HTTP_HOST: "127.0.0.1" },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"] });
     } else {
-      serverProcess = spawn("npx", ["tsx", serverPath], {
-        env: { ...process.env, HTTP_PORT: "8866", HTTP_HOST: "127.0.0.1" },
-        stdio: ["ignore", "pipe", "pipe"],
-        shell: true,
-      });
+      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true });
     }
+    serverProcess = proc;
 
-    serverProcess.stdout.on("data", (data) => {
+    proc.stdout.on("data", (data) => {
       const text = data.toString();
-      if (text.includes("HTTP server started")) {
+      if (!started && text.includes("HTTP server started")) {
+        started = true;
         clearTimeout(startupTimeout);
         resolve();
       }
+      sendLog("info", text.trim());
     });
 
-    serverProcess.on("error", reject);
-    serverProcess.on("exit", () => reject(new Error("Server process exited before ready")));
+    proc.stderr.on("data", (data) => {
+      const text = data.toString();
+      sendLog("error", text.trim());
+    });
 
-    const startupTimeout = setTimeout(() => resolve(), 10000);
+    proc.on("error", (err) => {
+      sendLog("error", `Server error: ${err.message}`);
+      if (!started) {
+        clearTimeout(startupTimeout);
+        reject(err);
+      }
+    });
+
+    proc.on("exit", (code) => {
+      sendLog("info", `Server process exited (code ${code})`);
+      if (serverProcess === proc) {
+        serverProcess = null;
+        notifyServerStatus(false);
+      }
+      if (!started) {
+        clearTimeout(startupTimeout);
+        reject(new Error(`Server exited with code ${code}`));
+      }
+    });
+
+    const startupTimeout = setTimeout(() => {
+      if (!started) {
+        sendLog("warn", "Server start timed out — UI will still function");
+        started = true;
+        resolve();
+      }
+    }, 15000);
   });
 }
 
-app.whenReady().then(async () => {
-  try {
-    await startBridgeServer();
-  } catch {
-    // Server failed to start; window will show error state
+function stopBridgeServer() {
+  return new Promise((resolve) => {
+    if (!serverProcess) { resolve(); return; }
+    const proc = serverProcess;
+    serverProcess = null;
+    const killTimeout = setTimeout(() => {
+      notifyServerStatus(false);
+      sendLog("warn", "Server kill timed out — forcing");
+      resolve();
+    }, 3000);
+    proc.on("exit", () => {
+      clearTimeout(killTimeout);
+      notifyServerStatus(false);
+      sendLog("info", "Server stopped");
+      resolve();
+    });
+    proc.kill();
+  });
+}
+
+function sendLog(level, message) {
+  const entry = { level, message, timestamp: new Date().toISOString() };
+  if (!rendererReady || !mainWindow || mainWindow.isDestroyed()) {
+    pendingLogs.push(entry);
+    return;
   }
+  mainWindow.webContents.send("server-log", entry);
+}
+
+function notifyServerStatus(running) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const config = store.get();
+    mainWindow.webContents.send("server-status-changed", { running, port: config.port });
+  }
+}
+
+let saveBoundsTimer = null;
+
+function saveBoundsDebounced() {
+  clearTimeout(saveBoundsTimer);
+  saveBoundsTimer = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const [w, h] = mainWindow.getSize();
+      const [x, y] = mainWindow.getPosition();
+      store.set({ windowBounds: { x, y, width: w, height: h } });
+    }
+  }, 400);
+}
+
+function createWindow() {
+  const config = store.get();
+  const bounds = config.windowBounds || { width: 1100, height: 750 };
 
   mainWindow = new BrowserWindow({
-    width: 400,
-    height: 200,
-    resizable: false,
-    webPreferences: { nodeIntegration: false },
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: 900,
+    minHeight: 650,
+    resizable: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
   });
 
-  mainWindow.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          background: #1a1a2e;
-          color: #e0e0e0;
-          margin: 0;
-          padding: 20px;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          height: 100vh;
-          -webkit-app-region: drag;
-        }
-        h1 { font-size: 16px; margin: 0 0 8px 0; color: #7c3aed; }
-        p { font-size: 12px; margin: 4px 0; color: #a0a0a0; }
-        .status { font-size: 11px; }
-        .hint { font-size: 10px; color: #666; margin-top: 16px; }
-        .close-btn {
-          -webkit-app-region: no-drag;
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          background: none;
-          border: none;
-          color: #666;
-          font-size: 16px;
-          cursor: pointer;
-          padding: 4px 8px;
-        }
-        .close-btn:hover { color: #f34747; }
-      </style>
-    </head>
-    <body>
-      <button class="close-btn" onclick="window.close()">&#10005;</button>
-      <h1>RPG Maker Bridge</h1>
-      <p class="status" id="status" style="color: #f59e0b">&#9679; Starting server...</p>
-      <p>RPGMV_PROJECT_DIR: ${process.env.RPGMV_PROJECT_DIR || "(not set)"}</p>
-      <p class="hint" id="hint">Configure AI client to use http://localhost:8866</p>
-      <script>
-        document.getElementById('status').innerHTML = '● Server running on port 8866';
-        document.getElementById('status').style.color = '#22c55e';
-      </script>
-    </body>
-    </html>
-  `));
+  mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
+
+  mainWindow.on("resize", saveBoundsDebounced);
+  mainWindow.on("move", saveBoundsDebounced);
 
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+
+function registerIpcHandlers() {
+  ipcMain.handle("renderer-ready", () => {
+    rendererReady = true;
+    pendingLogs.splice(0).forEach((e) => mainWindow?.webContents.send("server-log", e));
+  });
+
+  ipcMain.handle("select-project-folder", async () => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openDirectory"],
+      title: "Select RPG Maker Project Folder",
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle("get-config", () => {
+    return store.get();
+  });
+
+  ipcMain.handle("set-config", (_event, partial) => {
+    store.set(partial);
+    return store.get();
+  });
+
+  ipcMain.handle("start-server", async () => {
+    const config = store.get();
+    if (!config.projectPath) return { ok: false, error: "No project folder set" };
+    if (serverProcess) return { ok: true, message: "Server already running" };
+    try {
+      await startBridgeServer(config.projectPath, config.port, config.host);
+      notifyServerStatus(true);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("stop-server", async () => {
+    await stopBridgeServer();
+    return { ok: true };
+  });
+
+  ipcMain.handle("restart-server", async () => {
+    const config = store.get();
+    await stopBridgeServer();
+    if (!config.projectPath) return { ok: false, error: "No project folder set" };
+    try {
+      await startBridgeServer(config.projectPath, config.port, config.host);
+      notifyServerStatus(true);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("get-server-status", () => {
+    return { running: serverProcess !== null, port: store.get().port };
+  });
+}
+
+app.whenReady().then(async () => {
+  registerIpcHandlers();
+  createWindow();
+
+  const config = store.get();
+  if (config.autoStartServer && config.projectPath && existsSync(config.projectPath)) {
+    sendLog("info", "Auto-starting server...");
+    try {
+      await startBridgeServer(config.projectPath, config.port, config.host);
+      notifyServerStatus(true);
+    } catch {
+      sendLog("error", "Server auto-start failed — configure project in Settings");
+    }
+  }
 });
 
 app.on("window-all-closed", () => {
-  if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
-  }
-  app.quit();
+  stopBridgeServer().then(() => app.quit());
 });
 
 app.on("before-quit", () => {
   if (serverProcess) {
-    serverProcess.kill();
+    const proc = serverProcess;
     serverProcess = null;
+    proc.kill();
   }
 });

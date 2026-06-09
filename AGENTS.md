@@ -137,5 +137,11 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        (Game_Interpreter). Parameter order is positional and wrong
        order produces silent game corruption with no error.
     r. Electron main processes must use .cjs extension when the project
-       uses "type": "module" in package.json. .js files in ESM projects
-       cannot use require() and will crash.
+        uses "type": "module" in package.json. .js files in ESM projects
+        cannot use require() and will crash.
+    s. Greptile reviews are embedded in the PR **body** (the description),
+       between `<!-- greptile_comment -->` markers — NOT in the
+       `gh pr view --json reviews` output. To check for new reviews,
+       always fetch `gh pr view <N> --json body` and scan for
+       `greptile_comment`. The `reviews` JSON field only shows placeholder
+       data and is never the actual review content.
