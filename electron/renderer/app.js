@@ -89,8 +89,8 @@ const App = {
     await window.heroLinkAPI.setConfig({ projectPath: folder });
     HeroLinkState.set("config", await window.heroLinkAPI.getConfig());
     App.updateHeader();
-    await App.renderView(HeroLinkState.get("currentView"));
     await App.refreshProjectSummary();
+    await App.renderView(HeroLinkState.get("currentView"));
     const result = await window.heroLinkAPI.restartServer();
     if (result.ok) {
       HeroLinkState.set("serverStatus", { ...HeroLinkState.get("serverStatus"), running: true });
