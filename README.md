@@ -1,101 +1,124 @@
-# RPG Maker MV/MZ Content Bridge
+# HeroLink — RPG Maker MV/MZ Content Bridge
 
-A local, file-based bridge that lets an AI client read, draft, validate, and safely write content into an RPG Maker MV or MZ project.
-
-Supports both **RPG Maker MV** (auto-detected via `Game.rpgproject`) and **RPG Maker MZ** (auto-detected via `Game.mzproject`).
+A local, file-based bridge that lets an AI client read, draft, validate, and safely write content into an RPG Maker MV or MZ project. Supports both engines (auto-detected via `Game.rpgproject` or `Game.mzproject`).
 
 ## Quick Start
 
-### CLI
+### 1. Electron Desktop App (recommended)
 
 ```bash
-# Project status and entity counts
-npx tsx src/cli.ts status path/to/your/project
-npx tsx src/cli.ts data path/to/your/project
-
-# List/search entities
-npx tsx src/cli.ts list path/to/your/project Item
-npx tsx src/cli.ts list path/to/your/project Item --query potion
-npx tsx src/cli.ts get path/to/your/project Item 1
-
-# Maps and events
-npx tsx src/cli.ts maps path/to/your/project
-npx tsx src/cli.ts events path/to/your/project 1
-npx tsx src/cli.ts search path/to/your/project "hello"
-npx tsx src/cli.ts notes path/to/your/project "type"
-
-# Plugins
-npx tsx src/cli.ts plugins path/to/your/project
-npx tsx src/cli.ts set-plugin-param path/to/your/project MyPlugin Key Value
-npx tsx src/cli.ts add-plugin path/to/your/project MyPlugin path/to/plugin.js
-
-# Validation
-npx tsx src/cli.ts validate path/to/your/project
-
-# Draft and apply changes
-npx tsx src/cli.ts pending path/to/your/project
-npx tsx src/cli.ts diff path/to/your/project
-npx tsx src/cli.ts discard path/to/your/project
-npx tsx src/cli.ts apply path/to/your/project
-npx tsx src/cli.ts rollback path/to/your/project
-npx tsx src/cli.ts backups path/to/your/project
-
-# In-engine integration (requires BridgeInspector plugin and running game)
-npx tsx src/cli.ts inspect-runtime path/to/your/project --refresh
-npx tsx src/cli.ts preview-entity path/to/your/project Item 1
+npm install
+npm run electron
 ```
 
-### MCP Server (for AI clients)
+Set your project folder in **Project Settings**, start the server, and use an AI client to draft content. Review and apply changes from the **Pending Changes** view.
+
+### 2. CLI
 
 ```bash
-# Set the project directory and start the MCP stdio server
-RPGMV_PROJECT_DIR=path/to/your/project npx tsx src/index.ts
+# Project info
+npx tsx src/cli.ts status path/to/project
+npx tsx src/cli.ts list path/to/project Item
+
+# Validate
+npx tsx src/cli.ts validate path/to/project
+
+# Draft + apply
+npx tsx src/cli.ts pending path/to/project
+npx tsx src/cli.ts diff path/to/project
+npx tsx src/cli.ts apply path/to/project
+npx tsx src/cli.ts rollback path/to/project
 ```
 
-The MCP server exposes all 27 tools for reading, drafting, validating, and applying project changes.
-
-### HTTP API
+### 3. MCP Server (for AI clients)
 
 ```bash
-# Start the HTTP server (default port 8866)
-RPGMV_PROJECT_DIR=path/to/your/project npx tsx src/http/server.ts
+RPGMV_PROJECT_DIR=path/to/project npx tsx src/index.ts
+```
 
-# Custom port and host
-HTTP_PORT=3000 HTTP_HOST=0.0.0.0 RPGMV_PROJECT_DIR=path/to/your/project npx tsx src/http/server.ts
+Exposes all 27+ tools for reading, drafting, validating, and applying changes.
 
-# List available tools
+### 4. HTTP API
+
+```bash
+# Start server
+RPGMV_PROJECT_DIR=path/to/project npx tsx src/http/server.ts
+
+# List tools
 curl http://localhost:8866/tools
 
 # Call a tool
-curl -X POST http://localhost:8866/tools/get_project_status \
+curl -X POST http://localhost:8866/api/tools/get_project_status \
   -H 'Content-Type: application/json' -d '{}'
 
-# Draft and apply
-curl -X POST http://localhost:8866/tools/create_item_draft \
-  -H 'Content-Type: application/json' -d '{"fields": {"name": "Hi-Potion", "itypeId": 1}}'
-curl -X POST http://localhost:8866/tools/apply_patch \
+# Draft an item
+curl -X POST http://localhost:8866/api/tools/create_item_draft \
+  -H 'Content-Type: application/json' \
+  -d '{"fields": {"name": "Hi-Potion", "itypeId": 1}}'
+
+# Apply changes
+curl -X POST http://localhost:8866/api/tools/apply_patch \
   -H 'Content-Type: application/json' -d '{"confirm": true}'
 ```
+
+## Features
+
+- **Read & Summarize** — browse project database, maps, events, plugins, notes
+- **Audit & Validate** — reference-integrity checking with error/warn severity
+- **Safe Mutation** — propose → validate → diff → apply → rollback pipeline; atomic writes, backups, staleness detection
+- **Event Authoring** — constrained event-command builder for common events and map events
+- **Plugin Management** — add plugins, set parameters
+- **In-Engine Integration** — runtime inspection via `BridgeInspector.js` plugin
+- **Electron Desktop App** — 5-view control panel: Dashboard, Project Settings, Pending Changes, Documentation, Logs
+- **Cross-Engine** — full support for both MV and MZ
+
+## The Draft & Apply Workflow
+
+Every change follows: **propose** (AI client creates a draft) → **review** (view pending changes with diffs) → **apply** (backup + validate + atomic write) → **rollback** (restore from backup if needed).
+
+Key safety guarantees:
+- No draft modifies files on disk until you explicitly apply
+- Every apply creates a full backup and transaction journal
+- Atomic writes (temp + rename) prevent corrupt files on crash
+- Staleness detection refuses to apply if files changed on disk
+- Rollback restores files byte-for-identical to pre-apply state
 
 ## Development
 
 ```bash
 npm install
-npm run check                    # lint + typecheck + tests + coverage
-npm run test                     # tests only
-npm run test:watch               # tests in watch mode
-npm run generate-fixtures        # regenerate test fixtures
-npm run http                     # start HTTP server
-npm run electron                 # start Electron desktop app
+npm run check            # lint + typecheck + tests + coverage
+npm run test             # tests only
+npm run http             # start HTTP server only
+npm run electron         # start Electron desktop app
+```
+
+## Project Structure
+
+```
+electron/                # Desktop app (main.cjs, preload, renderer SPA)
+src/
+  cli.ts                 # CLI entrypoint
+  index.ts               # MCP server entrypoint
+  http/server.ts         # HTTP API server
+  io/                    # Project I/O + normalized model
+  schema/                # Zod schemas for entities + event commands
+  validate/              # Reference-integrity validation
+  mutate/                # Staging, apply, rollback, backup, journal
+  tools/                 # Tool handlers (one per file)
+  engine/                # MV/MZ engine adapter
+  plugin/                # BridgeInspector runtime plugin
+test/                    # Vitest unit + integration tests
 ```
 
 ## Version Roadmap
 
 | Version | Capability | Status |
 |---------|-----------|--------|
-| v1 | Read & Summarize | **Done** |
-| v2 | Audit & Validate | **Done** |
-| v3 | Safe Database Mutation | **Done** |
-| v4 | Events, Maps & Plugins | **Done** |
-| v5 | In-Engine Integration | **Done** |
-| v6 | Full Surface (HTTP API, MZ adapter, Advanced Events, Electron) | **In Progress** |
+| v1 | Read & Summarize | **Complete** |
+| v2 | Audit & Validate | **Complete** |
+| v3 | Safe Database Mutation | **Complete** |
+| v4 | Events, Maps & Plugins | **Complete** |
+| v5 | In-Engine Integration | **Complete** |
+| v6 | Full Surface (HTTP API, MZ adapter, Advanced Events, Electron) | **Complete** |
+| v7 | Review & Polish | **Complete** |
