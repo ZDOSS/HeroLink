@@ -14,7 +14,7 @@ const Header = {
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2 text-xs" style="color: var(--text-secondary); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             <span>📁</span>
-            <span id="project-path-display" title="${this.escapeHtml(config.projectPath || "")}">${config.projectPath || "No project selected"}</span>
+            <span id="project-path-display" title="${this.escapeHtml(config.projectPath || "")}">${this.escapeHtml(config.projectPath) || "No project selected"}</span>
           </div>
           <div class="status-pill ${statusClass}" id="status-pill">
             <span class="dot"></span>

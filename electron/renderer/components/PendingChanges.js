@@ -27,7 +27,7 @@ const PendingChanges = {
               </div>
             </div>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-sm btn-ghost" onclick="PendingChanges.discardOne('${c.changeId}')">Discard</button>
+              <button class="btn btn-sm btn-ghost" data-change-id="${this.escapeHtml(c.changeId)}" onclick="PendingChanges.discardOne(this.dataset.changeId)">Discard</button>
             </div>
           </div>
         `;

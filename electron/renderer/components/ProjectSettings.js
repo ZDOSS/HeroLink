@@ -60,6 +60,8 @@ const ProjectSettings = {
     const result = await window.heroLinkAPI.restartServer();
     if (result.ok) {
       HeroLinkState.set("serverStatus", { ...HeroLinkState.get("serverStatus"), running: true });
+    } else if (result && result.error) {
+      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
     }
     App.updateHeader();
     App.updateSidebar();
