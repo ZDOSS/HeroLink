@@ -144,4 +144,8 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        `gh pr view --json reviews` output. To check for new reviews,
        always fetch `gh pr view <N> --json body` and scan for
        `greptile_comment`. The `reviews` JSON field only shows placeholder
-       data and is never the actual review content.
+        data and is never the actual review content.
+    t. To retrigger a Greptile review on a PR, mention @greptileai in a
+       comment on the PR. Do NOT use \"gh pr comment --body /retrigger\"
+       (on Windows the leading slash is treated as a file path). Use:
+       gh pr comment <N> --body \"@greptileai\"
