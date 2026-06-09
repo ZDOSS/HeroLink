@@ -325,7 +325,7 @@ function compileChangeItems(
     {
       code: 126,
       indent,
-      parameters: [cmd.operation === "increase" ? 0 : 1, cmd.itemId, 0, cmd.operand],
+      parameters: [cmd.itemId, cmd.operation === "increase" ? 0 : 1, 0, cmd.operand],
     },
   ];
 }
