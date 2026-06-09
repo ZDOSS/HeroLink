@@ -1,7 +1,9 @@
 const BridgeAPI = {
   baseUrl() {
-    const port = HeroLinkState.get("config").port || 8866;
-    return `http://127.0.0.1:${port}`;
+    const config = HeroLinkState.get("config");
+    const host = config.host || "127.0.0.1";
+    const port = config.port || 8866;
+    return `http://${host}:${port}`;
   },
 
   _clean(obj) {

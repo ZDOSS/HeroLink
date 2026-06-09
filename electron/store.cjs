@@ -48,7 +48,9 @@ function set(partial) {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  writeFileSync(storePath, JSON.stringify(current, null, 2), "utf-8");
+  try {
+    writeFileSync(storePath, JSON.stringify(current, null, 2), "utf-8");
+  } catch { /* best-effort persistence, config cached in memory */ }
 }
 
 module.exports = { get, set, load, defaults };
