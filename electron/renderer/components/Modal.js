@@ -35,9 +35,10 @@ const Modal = {
   },
 
   async confirm() {
+    const backdrop = this._backdrop;
     if (this._onConfirm) await this._onConfirm();
     this._onCancel = null;
-    if (document.contains(this._backdrop)) this.close();
+    if (backdrop && document.contains(backdrop)) this.close();
   },
 
   close() {

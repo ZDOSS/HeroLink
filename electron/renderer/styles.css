@@ -37,11 +37,6 @@
 .text-lg { font-size: 18px; }
 .font-bold { font-weight: 700; }
 .hidden { display: none; }
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.1);
-  --border: #2a2a40;
-  --sidebar-width: 220px;
-}
 
 * { box-sizing: border-box; }
 
