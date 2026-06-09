@@ -42,14 +42,18 @@ const App = {
 
     HeroLinkState.set("currentView", viewId);
 
+    const loading = '<div class="empty-state"><div class="icon">⏳</div><h3>Loading...</h3></div>';
+
     switch (viewId) {
       case "dashboard":
+        main.innerHTML = loading;
         main.innerHTML = await Dashboard.render();
         break;
       case "settings":
         main.innerHTML = ProjectSettings.render();
         break;
       case "pending":
+        main.innerHTML = loading;
         main.innerHTML = await PendingChanges.render();
         break;
       case "docs":
@@ -60,6 +64,7 @@ const App = {
         Logs.attach();
         break;
       default:
+        main.innerHTML = loading;
         main.innerHTML = await Dashboard.render();
     }
 
@@ -69,9 +74,6 @@ const App = {
   async refreshProjectSummary() {
     const result = await BridgeAPI.listProjectData();
     HeroLinkState.set("projectSummary", result);
-    if (HeroLinkState.get("currentView") === "dashboard") {
-      App.renderView("dashboard");
-    }
   },
 
   async refreshPendingCount() {
@@ -121,6 +123,7 @@ const App = {
   async refreshDashboard() {
     await App.refreshProjectSummary();
     await App.refreshPendingCount();
+    await App.renderView("dashboard");
   },
 
   navigateTo(view) {
