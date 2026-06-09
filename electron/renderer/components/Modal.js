@@ -24,6 +24,7 @@ const Modal = {
 
     this._onConfirm = onConfirm || null;
     this._onCancel = onCancel || null;
+    this._backdrop = root.querySelector(".modal-backdrop");
 
     document.addEventListener("keydown", this._keyHandler);
   },
@@ -35,9 +36,7 @@ const Modal = {
   async confirm() {
     if (this._onConfirm) await this._onConfirm();
     this._onCancel = null;
-    const root = document.getElementById("modal-root");
-    if (root && !root.classList.contains("hidden") && root.children.length > 0) return;
-    this.close();
+    if (document.contains(this._backdrop)) this.close();
   },
 
   close() {
