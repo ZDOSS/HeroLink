@@ -1,4 +1,9 @@
 const Dashboard = {
+  escapeHtml(str) {
+    if (!str) return "";
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  },
+
   async render() {
     const config = HeroLinkState.get("config");
 
@@ -27,9 +32,9 @@ const Dashboard = {
           <div class="card" style="margin-bottom:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div style="font-size:16px;font-weight:600;">${d.gameTitle || "Unknown Project"}</div>
+                <div style="font-size:16px;font-weight:600;">${this.escapeHtml(d.gameTitle || "Unknown Project")}</div>
                 <div style="font-size:12px;color:var(--text-muted);">
-                  Engine: <span class="status-pill status-running" style="font-size:11px;">${d.engine || "mv"}</span>
+                  Engine: <span class="status-pill status-running" style="font-size:11px;">${this.escapeHtml(d.engine || "mv")}</span>
                 </div>
               </div>
               <div style="text-align:right;">

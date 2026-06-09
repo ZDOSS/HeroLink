@@ -32,8 +32,8 @@ const Modal = {
     if (e.key === "Escape") Modal.close();
   },
 
-  confirm() {
-    if (this._onConfirm) this._onConfirm();
+  async confirm() {
+    if (this._onConfirm) await this._onConfirm();
     this._onCancel = null;
     this.close();
   },

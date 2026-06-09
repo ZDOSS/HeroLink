@@ -58,7 +58,10 @@ function startBridgeServer(projectPath, port, host) {
 
     proc.on("error", (err) => {
       sendLog("error", `Server error: ${err.message}`);
-      if (!started) reject(err);
+      if (!started) {
+        clearTimeout(startupTimeout);
+        reject(err);
+      }
     });
 
     proc.on("exit", (code) => {
@@ -67,7 +70,10 @@ function startBridgeServer(projectPath, port, host) {
         serverProcess = null;
         notifyServerStatus(false);
       }
-      if (!started) reject(new Error(`Server exited with code ${code}`));
+      if (!started) {
+        clearTimeout(startupTimeout);
+        reject(new Error(`Server exited with code ${code}`));
+      }
     });
 
     const startupTimeout = setTimeout(() => {
