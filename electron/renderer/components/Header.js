@@ -27,17 +27,24 @@ const Header = {
     `;
   },
 
-  handleStartStop() {
+  async handleStartStop() {
     const status = HeroLinkState.get("serverStatus");
+    let result;
     if (status.running) {
-      window.heroLinkAPI.stopServer();
+      result = await window.heroLinkAPI.stopServer();
     } else {
-      window.heroLinkAPI.startServer();
+      result = await window.heroLinkAPI.startServer();
+    }
+    if (result && !result.ok && result.error) {
+      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
     }
   },
 
-  handleRestart() {
-    window.heroLinkAPI.restartServer();
+  async handleRestart() {
+    const result = await window.heroLinkAPI.restartServer();
+    if (result && !result.ok && result.error) {
+      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+    }
   },
 
   escapeHtml(str) {

@@ -93,16 +93,17 @@ function stopBridgeServer() {
     if (!serverProcess) { resolve(); return; }
     const proc = serverProcess;
     serverProcess = null;
-    proc.on("exit", () => {
-      notifyServerStatus(false);
-      sendLog("info", "Server stopped");
-      resolve();
-    });
-    setTimeout(() => {
+    const killTimeout = setTimeout(() => {
       notifyServerStatus(false);
       sendLog("warn", "Server kill timed out — forcing");
       resolve();
     }, 3000);
+    proc.on("exit", () => {
+      clearTimeout(killTimeout);
+      notifyServerStatus(false);
+      sendLog("info", "Server stopped");
+      resolve();
+    });
     proc.kill();
   });
 }
