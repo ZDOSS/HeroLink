@@ -89,12 +89,22 @@ function startBridgeServer(projectPath, port, host) {
 }
 
 function stopBridgeServer() {
-  if (serverProcess) {
-    serverProcess.kill();
+  return new Promise((resolve) => {
+    if (!serverProcess) { resolve(); return; }
+    const proc = serverProcess;
     serverProcess = null;
-    notifyServerStatus(false);
-    sendLog("info", "Server stopped");
-  }
+    proc.on("exit", () => {
+      notifyServerStatus(false);
+      sendLog("info", "Server stopped");
+      resolve();
+    });
+    setTimeout(() => {
+      notifyServerStatus(false);
+      sendLog("warn", "Server kill timed out — forcing");
+      resolve();
+    }, 3000);
+    proc.kill();
+  });
 }
 
 function sendLog(level, message) {
@@ -193,14 +203,14 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("stop-server", () => {
-    stopBridgeServer();
+  ipcMain.handle("stop-server", async () => {
+    await stopBridgeServer();
     return { ok: true };
   });
 
   ipcMain.handle("restart-server", async () => {
     const config = store.get();
-    stopBridgeServer();
+    await stopBridgeServer();
     if (!config.projectPath) return { ok: false, error: "No project folder set" };
     try {
       await startBridgeServer(config.projectPath, config.port, config.host);
@@ -233,10 +243,13 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  stopBridgeServer();
-  app.quit();
+  stopBridgeServer().then(() => app.quit());
 });
 
 app.on("before-quit", () => {
-  stopBridgeServer();
+  if (serverProcess) {
+    const proc = serverProcess;
+    serverProcess = null;
+    proc.kill();
+  }
 });

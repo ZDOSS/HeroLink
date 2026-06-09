@@ -108,6 +108,8 @@ const PendingChanges = {
       const result = await BridgeAPI.applyPendingChanges();
       if (result.success) {
         await App.refreshPendingCount();
+      } else {
+        Modal.show({ title: "Apply Failed", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
       }
       App.renderView("pending");
     }
