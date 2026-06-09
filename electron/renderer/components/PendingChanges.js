@@ -118,7 +118,7 @@ const PendingChanges = {
   async showDiff() {
     const result = await BridgeAPI.getDiff();
     if (!result.success) {
-      Modal.show({ title: "Diff", body: `<p>Could not load diff: ${result.error}</p>`, confirmText: "OK" });
+      Modal.show({ title: "Diff", body: `<p>Could not load diff: ${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
       return;
     }
     const content = result.data.humanSummary

@@ -12,7 +12,7 @@ const ProjectSettings = {
             <input type="text" id="settings-project-path" value="${this.escapeHtml(config.projectPath || "")}" placeholder="Select an RPG Maker project folder..." readonly style="flex:1;cursor:pointer;" onclick="App.selectProject()">
             <button class="btn btn-primary" onclick="App.selectProject()">Browse</button>
           </div>
-          ${config.projectPath ? `<div style="margin-top:4px;font-size:11px;color:var(--text-muted);">Detected: <span class="status-pill status-running" style="font-size:10px;">MV</span></div>` : ""}
+          ${config.projectPath ? `<div style="margin-top:4px;font-size:11px;color:var(--text-muted);">Detected: <span class="status-pill status-running" style="font-size:10px;">${this._detectedEngine()}</span></div>` : ""}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
@@ -64,6 +64,11 @@ const ProjectSettings = {
     App.updateHeader();
     App.updateSidebar();
     App.renderView("settings");
+  },
+
+  _detectedEngine() {
+    const summary = HeroLinkState.get("projectSummary");
+    return summary?.success && summary.data?.engine ? summary.data.engine.toUpperCase() : "MV";
   },
 
   escapeHtml(str) {

@@ -4,7 +4,7 @@ const Modal = {
     const confirmBtn = confirmText
       ? `<button class="btn btn-${variant === "danger" ? "danger" : "success"}" onclick="Modal.confirm()">${confirmText}</button>`
       : "";
-    const cancelBtn = cancelText !== false
+    const cancelBtn = cancelText !== undefined && cancelText !== false
       ? `<button class="btn btn-ghost" onclick="Modal.close()">${cancelText || "Cancel"}</button>`
       : "";
 
