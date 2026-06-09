@@ -456,7 +456,7 @@ describe("command builder", () => {
       expect(() =>
         ConstrainedCommandSchema.parse({
           type: "controlSelfSwitch",
-          selfSwitchCh: "AB",
+          selfSwitchCh: "E",
           value: true,
         }),
       ).toThrow();

@@ -114,7 +114,7 @@ const WaitCommand = z.object({
 
 const PlayBgmCommand = z.object({
   type: z.literal("playBgm"),
-  name: z.string(),
+  name: z.string().min(1),
   volume: z.number().int().min(0).max(100).default(90),
   pitch: z.number().int().min(50).max(150).default(100),
   pan: z.number().int().min(-100).max(100).default(0),
