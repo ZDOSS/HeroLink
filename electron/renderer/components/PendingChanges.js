@@ -64,6 +64,7 @@ const PendingChanges = {
       title: "Discard All Changes",
       body: "Are you sure you want to discard all pending changes? This action cannot be undone.",
       confirmText: "Discard All",
+      cancelText: "Cancel",
       variant: "danger",
       onConfirm: async () => {
         await BridgeAPI.discardPendingChanges();
@@ -84,6 +85,7 @@ const PendingChanges = {
           <p style="margin:0;font-size:12px;color:var(--warning);">⚠️ This action cannot be undone via the UI — use rollback from the API if needed.</p>
         `,
         confirmText: "Apply Changes",
+        cancelText: "Cancel",
         variant: "success",
         onConfirm: async () => {
           const result = await BridgeAPI.applyPendingChanges();
