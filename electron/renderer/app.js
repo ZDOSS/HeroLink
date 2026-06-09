@@ -1,4 +1,8 @@
 const App = {
+  escapeHtml(str) {
+    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  },
+
   async init() {
     await window.heroLinkAPI.rendererReady();
     const config = await window.heroLinkAPI.getConfig();
@@ -19,9 +23,9 @@ const App = {
 
     App.updateHeader();
     App.updateSidebar();
-    await App.renderView(HeroLinkState.get("currentView"));
     await App.refreshProjectSummary();
     await App.refreshPendingCount();
+    await App.renderView(HeroLinkState.get("currentView"));
   },
 
   updateHeader() {
@@ -100,13 +104,13 @@ const App = {
         title: "Validation Results",
         body: issues.length === 0
           ? "<p style='color:var(--success);'>✅ No issues found. Project is clean.</p>"
-          : `<pre style="max-height:400px;overflow-y:auto;font-size:12px;">${JSON.stringify(issues, null, 2)}</pre>`,
+          : `<pre style="max-height:400px;overflow-y:auto;font-size:12px;">${this.escapeHtml(JSON.stringify(issues, null, 2))}</pre>`,
         confirmText: "OK",
       });
     } else {
       Modal.show({
         title: "Validation Error",
-        body: `<p style="color:var(--danger);">${result.error}</p>`,
+        body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
         confirmText: "OK",
       });
     }

@@ -92,13 +92,13 @@ const PendingChanges = {
             App.renderView("pending");
             Modal.show({
               title: "Changes Applied",
-              body: `<p>Transaction ID: ${result.data.transactionId}<br>Files written: ${(result.data.filesWritten || []).join(", ")}</p>`,
+              body: `<p>Transaction ID: ${this.escapeHtml(String(result.data.transactionId ?? ""))}<br>Files written: ${this.escapeHtml((result.data.filesWritten || []).join(", "))}</p>`,
               confirmText: "OK",
             });
           } else {
             Modal.show({
               title: "Apply Failed",
-              body: `<p style="color:var(--danger);">${result.error}</p>`,
+              body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
               confirmText: "OK",
             });
           }

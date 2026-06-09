@@ -26,6 +26,7 @@ const Modal = {
     this._onCancel = onCancel || null;
     this._backdrop = root.querySelector(".modal-backdrop");
 
+    document.removeEventListener("keydown", this._keyHandler);
     document.addEventListener("keydown", this._keyHandler);
   },
 
