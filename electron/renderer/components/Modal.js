@@ -34,6 +34,7 @@ const Modal = {
 
   confirm() {
     if (this._onConfirm) this._onConfirm();
+    this._onCancel = null;
     this.close();
   },
 

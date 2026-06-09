@@ -30,16 +30,18 @@ function startBridgeServer(projectPath, port, host) {
     const serverPath = path.join(projectRoot, "src", "http", "server.ts");
     const env = buildServerEnv(projectPath, port, host);
 
+    let started = false;
+    let proc;
+
     if (isPackaged) {
       const jsPath = path.join(projectRoot, "dist", "src", "http", "server.js");
-      serverProcess = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"] });
+      proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"] });
     } else {
-      serverProcess = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true });
+      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true });
     }
+    serverProcess = proc;
 
-    let started = false;
-
-    serverProcess.stdout.on("data", (data) => {
+    proc.stdout.on("data", (data) => {
       const text = data.toString();
       if (!started && text.includes("HTTP server started")) {
         started = true;
@@ -49,20 +51,22 @@ function startBridgeServer(projectPath, port, host) {
       sendLog("info", text.trim());
     });
 
-    serverProcess.stderr.on("data", (data) => {
+    proc.stderr.on("data", (data) => {
       const text = data.toString();
       sendLog("error", text.trim());
     });
 
-    serverProcess.on("error", (err) => {
+    proc.on("error", (err) => {
       sendLog("error", `Server error: ${err.message}`);
       if (!started) reject(err);
     });
 
-    serverProcess.on("exit", (code) => {
+    proc.on("exit", (code) => {
       sendLog("info", `Server process exited (code ${code})`);
-      serverProcess = null;
-      notifyServerStatus(false);
+      if (serverProcess === proc) {
+        serverProcess = null;
+        notifyServerStatus(false);
+      }
       if (!started) reject(new Error(`Server exited with code ${code}`));
     });
 

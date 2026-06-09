@@ -11,7 +11,7 @@ const Logs = {
 
       <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
         ${Object.entries(filterLabels).map(([key, label]) => `
-          <button class="btn btn-sm ${this.filter === key ? "btn-primary" : "btn-ghost"}" onclick="Logs.setFilter('${key}')">${label}</button>
+          <button class="btn btn-sm log-filter-btn ${this.filter === key ? "btn-primary" : "btn-ghost"}" data-filter="${key}" onclick="Logs.setFilter('${key}')">${label}</button>
         `).join("")}
         <div style="flex:1;"></div>
         <button class="btn btn-sm btn-ghost" onclick="Logs.clear()">Clear</button>
@@ -60,6 +60,9 @@ const Logs = {
 
   setFilter(key) {
     this.filter = key;
+    document.querySelectorAll(".log-filter-btn").forEach((btn) => {
+      btn.className = `btn btn-sm log-filter-btn ${btn.dataset.filter === key ? "btn-primary" : "btn-ghost"}`;
+    });
     this._populateContainer();
     this._updateCounter();
   },
