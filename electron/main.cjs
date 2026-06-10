@@ -99,7 +99,7 @@ function stopBridgeServer() {
           if (process.platform === "win32") {
             execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: "ignore" });
           } else {
-            proc.kill("SIGKILL");
+            process.kill(-proc.pid, "SIGKILL");
           }
         } catch { /* process already gone */ }
       }
@@ -275,6 +275,6 @@ app.on("window-all-closed", () => {
 app.on("before-quit", (event) => {
   if (serverProcess) {
     event.preventDefault();
-    stopBridgeServer().then(() => process.exit(0));
+    stopBridgeServer().then(() => app.quit());
   }
 });
