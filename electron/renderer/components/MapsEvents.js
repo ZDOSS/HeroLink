@@ -1,5 +1,6 @@
 const MapsEvents = {
   _selectedMapId: null,
+  _events: null,
 
   render() {
     return `
@@ -70,6 +71,7 @@ const MapsEvents = {
       return;
     }
     const events = result.data?.events || [];
+    this._events = events;
     if (events.length === 0) {
       el.innerHTML = "No events on this map.";
       return;
@@ -86,19 +88,8 @@ const MapsEvents = {
     `).join("");
   },
 
-  async showEventDetail(mapId, eventId) {
-    Modal.show({
-      title: "Event Detail",
-      body: '<div style="padding:12px;text-align:center;">⏳ Loading...</div>',
-      confirmText: "Close",
-      cancelText: false,
-    });
-    const result = await BridgeAPI.getMapEvents(mapId);
-    if (!result.success) {
-      Modal.show({ title: "Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK", cancelText: false });
-      return;
-    }
-    const event = (result.data?.events || []).find((ev) => ev.id === eventId);
+  showEventDetail(mapId, eventId) {
+    const event = (this._events || []).find((ev) => ev.id === eventId);
     Modal.show({
       title: `Event: ${this.escapeHtml(event?.name || "(unnamed)")}`,
       body: event
@@ -133,6 +124,6 @@ const MapsEvents = {
   },
 
   escapeHtml(str) {
-    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   },
 };

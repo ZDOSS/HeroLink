@@ -106,4 +106,16 @@ const BridgeAPI = {
   async rollbackLast() {
     return this.callTool("rollback_last_patch");
   },
+
+  async listPlugins() {
+    return this.callTool("list_plugins");
+  },
+
+  async setPluginParamDraft(pluginName, params) {
+    return this.callTool("set_plugin_param_draft", { pluginName, params });
+  },
+
+  async addPluginDraft(name, source) {
+    return this.callTool("add_plugin_draft", { name, source, params: {} });
+  },
 };

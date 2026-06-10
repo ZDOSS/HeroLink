@@ -20,7 +20,7 @@ const PluginsManager = {
   async loadPlugins() {
     const el = document.getElementById("pm-plugin-list");
     if (!el) return;
-    const result = await BridgeAPI.callTool("list_plugins");
+    const result = await BridgeAPI.listPlugins();
     if (!result.success) {
       el.innerHTML = `<span style="color:var(--danger);">${this.escapeHtml(result.error)}</span>`;
       return;
@@ -55,7 +55,7 @@ const PluginsManager = {
         const key = document.getElementById("pm-key")?.value || "";
         const val = document.getElementById("pm-val")?.value || "";
         if (!key) return;
-        const result = await BridgeAPI.callTool("set_plugin_param_draft", { pluginName, params: { [key]: val } });
+        const result = await BridgeAPI.setPluginParamDraft(pluginName, { [key]: val });
         if (result.success) {
           await App.refreshPendingCount();
           Modal.show({ title: "Draft Created", body: `<p>Parameter draft for "${this.escapeHtml(pluginName)}" added to Pending Changes.</p>`, confirmText: "OK", cancelText: false });
@@ -80,7 +80,7 @@ const PluginsManager = {
         const name = document.getElementById("pm-add-name")?.value || "";
         const source = document.getElementById("pm-add-source")?.value || "";
         if (!name) return;
-        const result = await BridgeAPI.callTool("add_plugin_draft", { name, source, params: {} });
+        const result = await BridgeAPI.addPluginDraft(name, source);
         if (result.success) {
           await App.refreshPendingCount();
           Modal.show({ title: "Draft Created", body: `<p>Plugin draft for "${this.escapeHtml(name)}" added to Pending Changes.</p>`, confirmText: "OK", cancelText: false });
@@ -92,6 +92,6 @@ const PluginsManager = {
   },
 
   escapeHtml(str) {
-    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   },
 };
