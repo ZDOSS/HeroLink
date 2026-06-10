@@ -68,9 +68,23 @@ curl -X POST http://localhost:8866/api/tools/apply_patch \
 - **Safe Mutation** — propose → validate → diff → apply → rollback pipeline; atomic writes, backups, staleness detection
 - **Event Authoring** — constrained event-command builder for common events and map events
 - **Plugin Management** — add plugins, set parameters
-- **In-Engine Integration** — runtime inspection via `BridgeInspector.js` plugin
+- **In-Engine Integration** — runtime inspection via `BridgeInspector.js` plugin (optional, see below)
 - **Electron Desktop App** — 5-view control panel: Dashboard, Project Settings, Pending Changes, Documentation, Logs
 - **Cross-Engine** — full support for both MV and MZ
+
+## In-Engine Integration (BridgeInspector)
+
+HeroLink includes an **optional** RPG Maker MV plugin called `BridgeInspector.js` (`js/plugins/BridgeInspector.js`). When installed in your project and loaded in-game, it enables two extra tools:
+
+- **`inspect_runtime`** — reads live game state (current map, party, switches, variables) while the game is running
+- **`preview_entity`** — triggers in-game previews of database entities
+
+**To use it:**
+1. Copy `js/plugins/BridgeInspector.js` from this repo into your project's `js/plugins/` folder
+2. Add `BridgeInspector` to your project's plugin list in RPG Maker MV
+3. Start the game — BridgeInspector will report status back to HeroLink
+
+**This plugin is not required** for any other functionality. All read, draft, validate, and apply tools work without it. The plugin only affects the `inspect_runtime` and `preview_entity` tools.
 
 ## The Draft & Apply Workflow
 

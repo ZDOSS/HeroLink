@@ -37,7 +37,7 @@ const Documentation = {
             <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Audit</td><td style="padding:4px 8px;">validate_project_refs</td></tr>
             <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Draft</td><td style="padding:4px 8px;">create_item_draft, create_skill_draft, create_entity_draft, update_entity_draft, create_common_event_draft, create_map_event_draft, set_plugin_param_draft, add_plugin_draft</td></tr>
             <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Apply</td><td style="padding:4px 8px;">apply_patch, rollback_last_patch, discard_pending_changes, list_backups, list_pending_changes, diff_pending_changes</td></tr>
-            <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Engine</td><td style="padding:4px 8px;">inspect_runtime, preview_entity</td></tr>
+            <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Engine</td><td style="padding:4px 8px;">inspect_runtime, preview_entity <span style="color:var(--warning);font-size:11px;">(requires BridgeInspector plugin)</span></td></tr>
           </table>
         </div>
       </div>
