@@ -15,6 +15,10 @@ const PluginsManager = {
 
   attach() {
     this.loadPlugins();
+    document.getElementById("pm-plugin-list")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".pm-edit-btn");
+      if (btn) this.showEditParams(btn.dataset.pluginName);
+    });
   },
 
   async loadPlugins() {
@@ -36,7 +40,7 @@ const PluginsManager = {
           <div style="font-size:13px;">${this.escapeHtml(p.name)}</div>
           <div style="font-size:11px;color:var(--text-muted);">${p.status ? "Enabled" : "Disabled"} ${p.description ? "· " + this.escapeHtml(p.description).slice(0, 60) : ""}</div>
         </div>
-        <button class="btn btn-sm btn-ghost" onclick="PluginsManager.showEditParams('${this.escapeHtml(p.name)}')">Edit Params</button>
+        <button class="btn btn-sm btn-ghost pm-edit-btn" data-plugin-name="${this.escapeHtml(p.name)}">Edit Params</button>
       </div>
     `).join("");
   },

@@ -23,6 +23,10 @@ const BackupsView = {
 
   attach() {
     this.refresh();
+    document.getElementById("bv-backup-list")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".bv-detail-btn");
+      if (btn) this.showDetail(btn.dataset.txnId);
+    });
   },
 
   async refresh() {
@@ -45,7 +49,7 @@ const BackupsView = {
           <div style="font-size:13px;">${i + 1}. ${this.escapeHtml(t.id?.slice(0, 12) || "?")}</div>
           <div style="font-size:11px;color:var(--text-muted);">${this.escapeHtml(t.timestamp || "")} · ${(t.files || []).length} files</div>
         </div>
-        <button class="btn btn-sm btn-ghost" onclick="BackupsView.showDetail('${this.escapeHtml(t.id)}')">Details</button>
+        <button class="btn btn-sm btn-ghost bv-detail-btn" data-txn-id="${this.escapeHtml(t.id)}">Details</button>
       </div>
     `).join("");
   },
