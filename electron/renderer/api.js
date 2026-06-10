@@ -29,7 +29,9 @@ const BridgeAPI = {
       if (data.isError) {
         return { success: false, error: data.content?.[0]?.text || "Unknown error" };
       }
-      return { success: true, data };
+      // HTTP server wraps all tool results in {ok, result} — unwrap
+      const result = data.ok !== undefined ? data.result : data;
+      return { success: data.ok !== false, data: result };
     } catch (err) {
       return { success: false, error: err.message };
     }

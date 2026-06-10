@@ -20,7 +20,7 @@ export function getProjectStatus(project: Project) {
     gameTitle: project.model.system.gameTitle,
     versionId: project.model.system.versionId,
     dirty: false,
-    pendingChanges: 0,
+    pendingChanges: project.staging.list().length,
     lastTransactionId: null,
   };
 }
