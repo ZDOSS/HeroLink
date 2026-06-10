@@ -3,7 +3,7 @@ const {
 } = require("electron");
 const { spawn, execSync } = require("child_process");
 const path = require("path");
-const { existsSync } = require("node:fs");
+const { existsSync, mkdirSync, copyFileSync } = require("node:fs");
 const store = require("./store.cjs");
 
 let mainWindow = null;
@@ -233,6 +233,22 @@ function registerIpcHandlers() {
 
   ipcMain.handle("get-server-status", () => {
     return { running: serverProcess !== null, port: store.get().port };
+  });
+
+  ipcMain.handle("install-inspector", () => {
+    const config = store.get();
+    if (!config.projectPath) return { ok: false, error: "No project folder set" };
+    const srcFile = path.join(projectRoot, "src", "plugin", "BridgeInspector.js");
+    const destDir = path.join(config.projectPath, "js", "plugins");
+    const destFile = path.join(destDir, "BridgeInspector.js");
+    if (!existsSync(srcFile)) return { ok: false, error: "BridgeInspector.js not found in HeroLink installation" };
+    try {
+      if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+      copyFileSync(srcFile, destFile);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   });
 }
 

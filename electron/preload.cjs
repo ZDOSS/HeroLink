@@ -19,4 +19,5 @@ contextBridge.exposeInMainWorld("heroLinkAPI", {
     ipcRenderer.on("server-status-changed", handler);
     return () => ipcRenderer.removeListener("server-status-changed", handler);
   },
+  installInspector: () => ipcRenderer.invoke("install-inspector"),
 });
