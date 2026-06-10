@@ -60,7 +60,8 @@ const App = {
         main.innerHTML = Documentation.render();
         break;
       case "tools":
-        main.innerHTML = Tools.render();
+        main.innerHTML = loading;
+        main.innerHTML = await Tools.render();
         Tools.attach();
         break;
       case "logs":

@@ -2,7 +2,7 @@ const Tools = {
   browserType: "Item",
   browserQuery: "",
 
-  async render() {
+  render() {
     return `
       <h2 style="margin:0 0 20px;font-size:18px;font-weight:600;">Tools</h2>
 
@@ -67,7 +67,7 @@ const Tools = {
     el.innerHTML = items.map((e) => `
       <div class="table-row" style="justify-content:space-between;">
         <span>${this.escapeHtml(e.name || "(unnamed)")}</span>
-        <span style="color:var(--text-muted);font-size:11px;">ID ${e.id}</span>
+        <span style="color:var(--text-muted);font-size:11px;">ID ${this.escapeHtml(e.id)}</span>
       </div>
     `).join("");
   },
