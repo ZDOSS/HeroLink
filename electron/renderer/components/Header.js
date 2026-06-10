@@ -37,6 +37,11 @@ const Header = {
     }
     if (result && !result.ok && result.error) {
       Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+    } else if (result && result.ok) {
+      await App.refreshProjectSummary();
+      if (HeroLinkState.get("currentView") !== "logs") {
+        await App.renderView(HeroLinkState.get("currentView"));
+      }
     }
   },
 
@@ -44,6 +49,11 @@ const Header = {
     const result = await window.heroLinkAPI.restartServer();
     if (result && !result.ok && result.error) {
       Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+    } else if (result && result.ok) {
+      await App.refreshProjectSummary();
+      if (HeroLinkState.get("currentView") !== "logs") {
+        await App.renderView(HeroLinkState.get("currentView"));
+      }
     }
   },
 

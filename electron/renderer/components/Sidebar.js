@@ -3,6 +3,7 @@ const Sidebar = {
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "settings", label: "Project Settings", icon: "⚙️" },
     { id: "pending", label: "Pending Changes", icon: "📝", badgeKey: "pendingChangesCount" },
+    { id: "tools", label: "Tools", icon: "🔧" },
     { id: "docs", label: "Documentation", icon: "📖" },
     { id: "logs", label: "Logs", icon: "📋" },
   ],

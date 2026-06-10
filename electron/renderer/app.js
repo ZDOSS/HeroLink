@@ -59,6 +59,10 @@ const App = {
       case "docs":
         main.innerHTML = Documentation.render();
         break;
+      case "tools":
+        main.innerHTML = Tools.render();
+        Tools.attach();
+        break;
       case "logs":
         main.innerHTML = Logs.render();
         Logs.attach();
