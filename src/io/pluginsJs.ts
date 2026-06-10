@@ -41,7 +41,7 @@ export function parsePluginsJs(content: string): PluginEntry[] {
 
 export function serializePluginsJs(plugins: PluginEntry[]): string {
   const json = JSON.stringify(plugins, null, 2);
-  return `${HEADER}${json.slice(0, -1)}\n];`;
+  return `${HEADER}${json.slice(0, -2)}\n];`;
 }
 
 export function readPluginsJs(projectDir: string): PluginEntry[] {

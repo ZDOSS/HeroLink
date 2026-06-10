@@ -10,5 +10,4 @@ var $plugins =
       "Count": 10
     }
   }
-
 ];
