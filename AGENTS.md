@@ -13,70 +13,72 @@ HARD INVARIANTS (do not violate):
 8. If a referenced id/file/path is missing, fail with a typed error. Never substitute or guess.
 9. Build in version order. A tool is not done until it has the tests required by §14.5.
 10. When genuinely unsure, stop and ask — do not invent behavior or game content.
+11. NEVER push directly to main. All changes go through a feature branch with a PR
+    that gets reviewed (by Greptile or a human) before merging.
 
 STATE MANAGEMENT (critical for MCP server correctness):
-11. The MCP server holds a single Project instance across all tool calls in a session. After ANY
-    operation that modifies files (apply, rollback), you MUST call reloadModel() to refresh both
-    fileSnapshots and entity data. Stale in-memory state causes duplicate IDs and false staleness errors.
-12. ALL disk writes must use atomic operations (writeFileAtomic.sync or equivalent). This includes
-    journal writes, staging writes, and any other persistent state. Non-atomic writes can corrupt
-    state on crash, breaking future operations.
-13. Before implementing any feature, trace through the full lifecycle: What happens when this is called
-    multiple times in the same session? What state persists between calls? What needs to be refreshed?
-    Document these assumptions in code comments.
+12. The MCP server holds a single Project instance across all tool calls in a session. After ANY
+     operation that modifies files (apply, rollback), you MUST call reloadModel() to refresh both
+     fileSnapshots and entity data. Stale in-memory state causes duplicate IDs and false staleness errors.
+13. ALL disk writes must use atomic operations (writeFileAtomic.sync or equivalent). This includes
+     journal writes, staging writes, and any other persistent state. Non-atomic writes can corrupt
+     state on crash, breaking future operations.
+14. Before implementing any feature, trace through the full lifecycle: What happens when this is called
+     multiple times in the same session? What state persists between calls? What needs to be refreshed?
+     Document these assumptions in code comments.
 
 TESTING REQUIREMENTS (beyond §14.5):
-14. Tests must verify multi-operation scenarios, not just single operations. For mutation tools, test:
-    - Multiple applies in the same session (verify IDs are unique and sequential)
-    - Apply → rollback → apply (verify no stale state errors)
-    - Chained rollbacks (verify correct transaction unwinding)
-15. Tests must assert correctness, not just success. Don't just check "no error thrown" — verify:
-    - ID uniqueness across multiple creates
-    - Sequential ID assignment
-    - Correct state after rollback
-    - File contents match expectations
-16. When fixing a bug, add a test that reproduces the bug BEFORE fixing it. This ensures the bug
-    doesn't regress and documents the failure mode for future developers.
+15. Tests must verify multi-operation scenarios, not just single operations. For mutation tools, test:
+     - Multiple applies in the same session (verify IDs are unique and sequential)
+     - Apply → rollback → apply (verify no stale state errors)
+     - Chained rollbacks (verify correct transaction unwinding)
+16. Tests must assert correctness, not just success. Don't just check "no error thrown" — verify:
+     - ID uniqueness across multiple creates
+     - Sequential ID assignment
+     - Correct state after rollback
+     - File contents match expectations
+17. When fixing a bug, add a test that reproduces the bug BEFORE fixing it. This ensures the bug
+     doesn't regress and documents the failure mode for future developers.
 
 CODE REVIEW CHECKLIST (before committing):
-17. For every file write: Is it atomic? Does it handle crashes gracefully?
-18. For every in-memory cache/snapshot: Is it refreshed after operations that change the underlying data?
-19. For every tool: Does it work correctly when called multiple times in the same session?
-20. For every test: Does it assert the right things, or just check that no error was thrown?
+18. For every file write: Is it atomic? Does it handle crashes gracefully?
+19. For every in-memory cache/snapshot: Is it refreshed after operations that change the underlying data?
+20. For every tool: Does it work correctly when called multiple times in the same session?
+21. For every test: Does it assert the right things, or just check that no error was thrown?
 
 RPG MAKER MV SPECIFIC RULES:
-21. ESM ONLY: This is an ESM project. Never use require(). Always use import statements. If you need
-    dynamic imports, use await import().
-22. VERIFY OPCODES: When implementing event commands, verify the opcode number against the RPG Maker MV
-    source code or official documentation. Do not guess. Common opcodes:
-    - Show Text: 101 (setup) + 401 (lines)
-    - Control Switches: 121
-    - Control Variables: 122
-    - Conditional Branch: 111 (NOT 400)
-    - Comment: 108 (first line) + 408 (continuation)
-    - Terminator: 0
-23. CURSOR ADVANCEMENT: When allocating IDs (entities, map events, etc.), you MUST advance the cursor
-    after each allocation. Pattern: nextIds.set(type, id + 1) or mapEventIds.set(mapId, [...ids, newId]).
-    Failure to advance causes duplicate IDs.
-24. CONSISTENT PATH HANDLING: Use getRelPath(file, projectDir) consistently across all files. Never use
-    split("/").slice(-2).join("/") or similar heuristics. This breaks for nested paths.
-25. COMPLETE DIFF OUTPUT: When implementing diff/preview tools, include ALL write plan types (jsonPatch,
-    pluginConfig, pluginFile). Do not silently omit any changes. Users need to see the complete picture
-    before applying.
+22. ESM ONLY: This is an ESM project. Never use require(). Always use import statements. If you need
+     dynamic imports, use await import().
+23. VERIFY OPCODES: When implementing event commands, verify the opcode number against the RPG Maker MV
+     source code or official documentation. Do not guess. Common opcodes:
+     - Show Text: 101 (setup) + 401 (lines)
+     - Control Switches: 121
+     - Control Variables: 122
+     - Conditional Branch: 111 (NOT 400)
+     - Comment: 108 (first line) + 408 (continuation)
+     - Terminator: 0
+24. CURSOR ADVANCEMENT: When allocating IDs (entities, map events, etc.), you MUST advance the cursor
+     after each allocation. Pattern: nextIds.set(type, id + 1) or mapEventIds.set(mapId, [...ids, newId]).
+     Failure to advance causes duplicate IDs.
+25. CONSISTENT PATH HANDLING: Use getRelPath(file, projectDir) consistently across all files. Never use
+     split("/").slice(-2).join("/") or similar heuristics. This breaks for nested paths.
+26. COMPLETE DIFF OUTPUT: When implementing diff/preview tools, include ALL write plan types (jsonPatch,
+     pluginConfig, pluginFile). Do not silently omit any changes. Users need to see the complete picture
+     before applying.
 
 BUG FIX DISCIPLINE (prevent recurring mistakes):
-26. GREP FOR THE SAME BUG: When fixing a bug found in one function, grep the entire project for
-    the same pattern and fix ALL occurrences. Example: if writeJson return value is unchecked in
-    processCommands, grep for all writeJson calls and check every one.
-27. VERIFY FIXES DON'T INTRODUCE NEW BUGS: After applying a fix, trace the full code path of the
-    changed function. Ask: "Could this fix create a race condition? Could it drop data? Could it
-    return a misleading success?" Think about what OTHER process/thread might be doing concurrently.
-28. CONVENTION SELF-CHECK: Before committing, re-read your own diff. For every write operation,
-    verify it matches the convention used by every OTHER write in the same file. If the file uses
-    writeFileAtomic.sync, don't use writeFileSync.
+27. GREP FOR THE SAME BUG: When fixing a bug found in one function, grep the entire project for
+     the same pattern and fix ALL occurrences. Example: if writeJson return value is unchecked in
+     processCommands, grep for all writeJson calls and check every one.
+28. VERIFY FIXES DON'T INTRODUCE NEW BUGS: After applying a fix, trace the full code path of the
+     changed function. Ask: "Could this fix create a race condition? Could it drop data? Could it
+     return a misleading success?" Think about what OTHER process/thread might be doing concurrently.
+29. CONVENTION SELF-CHECK: Before committing, re-read your own diff. For every write operation,
+     verify it matches the convention used by every OTHER write in the same file. If the file uses
+     writeFileAtomic.sync, don't use writeFileSync.
 
 v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
-29. FILE-BASED IPC RULES: When implementing file-based inter-process communication:
+30. FILE-BASED IPC RULES: When implementing file-based inter-process communication:
     a. Every write function that returns success/failure MUST have its return
        value checked at every call site — grep for all callers, not just one.
     b. Cross-process read-modify-write MUST use a lock file (atomic mkdir)
@@ -87,7 +89,7 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
        null guard before property access.
     e. Every hardcoded value (fixture names, IDs, etc.) in tests MUST be
        derived from the project model instead.
-30. FIX COMPLETENESS CHECKLIST — before committing any fix, verify:
+31. FIX COMPLETENESS CHECKLIST — before committing any fix, verify:
     a. Did I check every call site for the same pattern? (grep)
     b. Did my fix create a new race condition or failure mode? (lifecycle trace)
     c. Does every file write match the surrounding code's conventions? (diff check)
@@ -148,4 +150,10 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     t. To retrigger a Greptile review on a PR, mention @greptileai in a
        comment on the PR. Do NOT use \"gh pr comment --body /retrigger\"
        (on Windows the leading slash is treated as a file path). Use:
-       gh pr comment <N> --body \"@greptileai\"
+        gh pr comment <N> --body \"@greptileai\"
+    u. NEVER replace `shell: true` with `npx.cmd` on Windows in child_process
+       spawn calls. `npx.cmd` causes EINVAL errors on some Windows
+       configurations. The `shell: true` flag works correctly and the zombie
+       process risk is handled by the `before-quit` event.preventDefault +
+       stopBridgeServer pattern. If you need cross-platform spawn, use
+       `shell: true` and handle cleanup with a SIGKILL/taskkill fallback.
