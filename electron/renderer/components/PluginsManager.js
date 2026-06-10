@@ -47,7 +47,7 @@ const PluginsManager = {
 
   showEditParams(pluginName) {
     Modal.show({
-      title: `Edit Params: ${pluginName}`,
+      title: `Edit Params: ${this.escapeHtml(pluginName)}`,
       body: `
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div><label>Parameter Key</label><input type="text" id="pm-key" placeholder="Key"></div>
