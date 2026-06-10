@@ -113,7 +113,11 @@ function stopBridgeServer() {
       sendLog("info", "Server stopped");
       resolve();
     });
-    proc.kill();
+    if (process.platform === "win32") {
+      proc.kill();
+    } else {
+      process.kill(-proc.pid, "SIGTERM");
+    }
   });
 }
 
