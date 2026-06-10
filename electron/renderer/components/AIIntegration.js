@@ -1,9 +1,7 @@
 const AIIntegration = {
-  _copyText: "",
-
   render() {
     const config = HeroLinkState.get("config");
-    const projectDir = config.projectPath || "/path/to/your/project";
+    const projectDir = App.escapeHtml(config.projectPath || "/path/to/your/project");
 
     return `
       <h2 style="margin:0 0 20px;font-size:18px;font-weight:600;">🧠 AI Integration</h2>
@@ -69,7 +67,7 @@ const AIIntegration = {
   "mcpServers": {
     "herolink": {
       "command": "npx",
-      "args": ["-y", "tsx", "C:\\\\Github\\\\HeroLink\\\\src\\\\index.ts"],
+      "args": ["-y", "tsx", "/path/to/HeroLink/src/index.ts"],
       "env": {
         "RPGMV_PROJECT_DIR": "${projectDir.replace(/\\/g, "\\\\")}"
       }
@@ -90,7 +88,7 @@ const AIIntegration = {
             <p style="margin:0 0 8px;">3. Command:</p>
             <div class="code-block" style="margin-bottom:8px;">
               <button class="copy-btn" onclick="AIIntegration.copyBlock(this)">Copy</button>
-              <pre>npx -y tsx C:/Github/HeroLink/src/index.ts</pre>
+              <pre>npx -y tsx /path/to/HeroLink/src/index.ts</pre>
             </div>
             <p>4. Environment: <code>RPGMV_PROJECT_DIR=${projectDir}</code></p>
           </div>
