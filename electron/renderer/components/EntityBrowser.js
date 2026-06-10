@@ -114,7 +114,14 @@ const EntityBrowser = {
       confirmText: "Create Draft",
       onConfirm: async () => {
         const fields = { name: document.getElementById("eb-cr-name")?.value || "" };
-        const result = await BridgeAPI.createEntity(this.type, fields);
+        let result;
+        if (this.type === "Item") {
+          result = await BridgeAPI.createItem(fields);
+        } else if (this.type === "Skill") {
+          result = await BridgeAPI.createSkill(fields);
+        } else {
+          result = await BridgeAPI.createEntity(this.type, fields);
+        }
         if (result.success) {
           await App.refreshPendingCount();
           Modal.show({ title: "Draft Created", body: "<p>A new draft has been added to Pending Changes.</p>", confirmText: "OK", cancelText: false });
