@@ -40,7 +40,8 @@ export function parsePluginsJs(content: string): PluginEntry[] {
 }
 
 export function serializePluginsJs(plugins: PluginEntry[]): string {
-  return `${HEADER}${JSON.stringify(plugins, null, 2)}\n];`;
+  const json = JSON.stringify(plugins, null, 2);
+  return `${HEADER}${json.slice(0, -1)}\n];`;
 }
 
 export function readPluginsJs(projectDir: string): PluginEntry[] {

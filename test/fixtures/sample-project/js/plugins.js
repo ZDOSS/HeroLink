@@ -11,5 +11,5 @@ var $plugins =
       "MaxCount": "10"
     }
   }
-]
+
 ];

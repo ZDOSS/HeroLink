@@ -74,13 +74,13 @@ curl -X POST http://localhost:8866/api/tools/apply_patch \
 
 ## In-Engine Integration (BridgeInspector)
 
-HeroLink includes an **optional** RPG Maker MV plugin called `BridgeInspector.js` (`js/plugins/BridgeInspector.js`). When installed in your project and loaded in-game, it enables two extra tools:
+HeroLink includes an **optional** RPG Maker MV plugin called `BridgeInspector.js` (`src/plugin/BridgeInspector.js`). When installed in your project and loaded in-game, it enables two extra tools:
 
 - **`inspect_runtime`** — reads live game state (current map, party, switches, variables) while the game is running
 - **`preview_entity`** — triggers in-game previews of database entities
 
 **To use it:**
-1. Copy `js/plugins/BridgeInspector.js` from this repo into your project's `js/plugins/` folder
+1. Copy `src/plugin/BridgeInspector.js` from this repo into your project's `js/plugins/` folder
 2. Add `BridgeInspector` to your project's plugin list in RPG Maker MV
 3. Start the game — BridgeInspector will report status back to HeroLink
 

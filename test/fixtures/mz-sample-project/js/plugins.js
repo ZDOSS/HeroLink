@@ -10,5 +10,5 @@ var $plugins =
       "Key": "Value"
     }
   }
-]
+
 ];
