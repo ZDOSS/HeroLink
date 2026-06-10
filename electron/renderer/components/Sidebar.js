@@ -1,11 +1,15 @@
 const Sidebar = {
   items: [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "settings", label: "Project Settings", icon: "⚙️" },
+    { id: "entities", label: "Entities", icon: "🗂️" },
+    { id: "maps", label: "Maps & Events", icon: "🗺️" },
+    { id: "plugins", label: "Plugins", icon: "🔌" },
     { id: "pending", label: "Pending Changes", icon: "📝", badgeKey: "pendingChangesCount" },
+    { id: "backups", label: "Backups", icon: "💾" },
     { id: "tools", label: "Tools", icon: "🔧" },
     { id: "docs", label: "Documentation", icon: "📖" },
     { id: "logs", label: "Logs", icon: "📋" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
   ],
 
   render() {

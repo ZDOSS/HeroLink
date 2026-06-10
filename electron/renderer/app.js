@@ -1,6 +1,6 @@
 const App = {
   escapeHtml(str) {
-    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   },
 
   async init() {
@@ -51,6 +51,22 @@ const App = {
         break;
       case "settings":
         main.innerHTML = ProjectSettings.render();
+        break;
+      case "entities":
+        main.innerHTML = EntityBrowser.render();
+        EntityBrowser.attach();
+        break;
+      case "maps":
+        main.innerHTML = MapsEvents.render();
+        MapsEvents.attach();
+        break;
+      case "plugins":
+        main.innerHTML = PluginsManager.render();
+        PluginsManager.attach();
+        break;
+      case "backups":
+        main.innerHTML = BackupsView.render();
+        BackupsView.attach();
         break;
       case "pending":
         main.innerHTML = loading;
