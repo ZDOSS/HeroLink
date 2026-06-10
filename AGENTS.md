@@ -13,6 +13,8 @@ HARD INVARIANTS (do not violate):
 8. If a referenced id/file/path is missing, fail with a typed error. Never substitute or guess.
 9. Build in version order. A tool is not done until it has the tests required by §14.5.
 10. When genuinely unsure, stop and ask — do not invent behavior or game content.
+11. NEVER push directly to main. All changes go through a feature branch with a PR
+    that gets reviewed (by Greptile or a human) before merging.
 
 STATE MANAGEMENT (critical for MCP server correctness):
 11. The MCP server holds a single Project instance across all tool calls in a session. After ANY
@@ -148,4 +150,10 @@ v5 CHANNEL PROTOCOL LESSONS (lessons learned from 7 rounds of review):
     t. To retrigger a Greptile review on a PR, mention @greptileai in a
        comment on the PR. Do NOT use \"gh pr comment --body /retrigger\"
        (on Windows the leading slash is treated as a file path). Use:
-       gh pr comment <N> --body \"@greptileai\"
+        gh pr comment <N> --body \"@greptileai\"
+    u. NEVER replace `shell: true` with `npx.cmd` on Windows in child_process
+       spawn calls. `npx.cmd` causes EINVAL errors on some Windows
+       configurations. The `shell: true` flag works correctly and the zombie
+       process risk is handled by the `before-quit` event.preventDefault +
+       stopBridgeServer pattern. If you need cross-platform spawn, use
+       `shell: true` and handle cleanup with a SIGKILL/taskkill fallback.
