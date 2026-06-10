@@ -1,7 +1,7 @@
 const {
   app, BrowserWindow, dialog, ipcMain,
 } = require("electron");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const path = require("path");
 const { existsSync } = require("node:fs");
 const store = require("./store.cjs");
@@ -39,8 +39,7 @@ function startBridgeServer(projectPath, port, host) {
       const jsPath = path.join(projectRoot, "dist", "src", "http", "server.js");
       proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"] });
     } else {
-      const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
-      proc = spawn(npxCmd, ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"] });
+      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true });
     }
     serverProcess = proc;
 
@@ -95,8 +94,17 @@ function stopBridgeServer() {
     const proc = serverProcess;
     serverProcess = null;
     const killTimeout = setTimeout(() => {
+      if (proc.pid) {
+        try {
+          if (process.platform === "win32") {
+            execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: "ignore" });
+          } else {
+            proc.kill("SIGKILL");
+          }
+        } catch { /* process already gone */ }
+      }
       notifyServerStatus(false);
-      sendLog("warn", "Server kill timed out — forcing");
+      sendLog("warn", "Server kill timed out — forced");
       resolve();
     }, 3000);
     proc.on("exit", () => {
