@@ -37,9 +37,9 @@ function startBridgeServer(projectPath, port, host) {
 
     if (isPackaged) {
       const jsPath = path.join(projectRoot, "dist", "src", "http", "server.js");
-      proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"] });
+      proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"], detached: true });
     } else {
-      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true });
+      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true, detached: true });
     }
     serverProcess = proc;
 
@@ -259,6 +259,6 @@ app.on("window-all-closed", () => {
 app.on("before-quit", (event) => {
   if (serverProcess) {
     event.preventDefault();
-    stopBridgeServer().then(() => app.quit());
+    stopBridgeServer().then(() => process.exit(0));
   }
 });
