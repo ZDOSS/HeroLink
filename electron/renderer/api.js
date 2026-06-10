@@ -74,4 +74,16 @@ const BridgeAPI = {
   async listProjectData() {
     return this.callTool("list_project_data");
   },
+
+  async createItem(fields) {
+    return this.callTool("create_item_draft", { fields: this._clean(fields) });
+  },
+
+  async createSkill(fields) {
+    return this.callTool("create_skill_draft", { fields: this._clean(fields) });
+  },
+
+  async createEntity(type, fields) {
+    return this.callTool("create_entity_draft", { type, fields: this._clean(fields) });
+  },
 };
