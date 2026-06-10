@@ -1,6 +1,7 @@
 const Tools = {
   browserType: "Item",
   browserQuery: "",
+  _searchTimer: null,
 
   render() {
     return `
@@ -30,7 +31,7 @@ const Tools = {
             <option value="State" ${this.browserType === "State" ? "selected" : ""}>States</option>
             <option value="Troop" ${this.browserType === "Troop" ? "selected" : ""}>Troops</option>
           </select>
-          <input type="text" id="tools-browser-query" placeholder="Filter by name..." value="${this.escapeHtml(this.browserQuery)}" onkeyup="Tools.browserQuery=this.value;Tools.refreshBrowser()" style="flex:1;">
+          <input type="text" id="tools-browser-query" placeholder="Filter by name..." value="${this.escapeHtml(this.browserQuery)}" onkeyup="clearTimeout(Tools._searchTimer);Tools._searchTimer=setTimeout(()=>{Tools.browserQuery=document.getElementById('tools-browser-query').value;Tools.refreshBrowser()},300)" style="flex:1;">
         </div>
         <div id="tools-browser-results" style="font-size:12px;color:var(--text-muted);">Select a type and click Search to browse entities.</div>
       </div>
@@ -39,7 +40,7 @@ const Tools = {
         <h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">Quick Actions</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" onclick="App.validateProject()">🔍 Validate Project</button>
-          <button class="btn btn-ghost btn-sm" onclick="App.refreshDashboard()">🔄 Refresh Data</button>
+          <button class="btn btn-ghost btn-sm" onclick="App.refreshProjectSummary().then(()=>App.refreshPendingCount())">🔄 Refresh Data</button>
           <button class="btn btn-ghost btn-sm" onclick="App.selectProject()">📁 Change Project</button>
         </div>
       </div>
