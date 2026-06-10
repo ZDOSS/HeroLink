@@ -3,7 +3,7 @@ const {
 } = require("electron");
 const { spawn, execSync } = require("child_process");
 const path = require("path");
-const { existsSync } = require("node:fs");
+const { existsSync, mkdirSync, copyFileSync } = require("node:fs");
 const store = require("./store.cjs");
 
 let mainWindow = null;
@@ -37,9 +37,9 @@ function startBridgeServer(projectPath, port, host) {
 
     if (isPackaged) {
       const jsPath = path.join(projectRoot, "dist", "src", "http", "server.js");
-      proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"] });
+      proc = spawn(process.execPath, [jsPath], { env, stdio: ["ignore", "pipe", "pipe"], detached: true });
     } else {
-      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true });
+      proc = spawn("npx", ["tsx", serverPath], { env, stdio: ["ignore", "pipe", "pipe"], shell: true, detached: true });
     }
     serverProcess = proc;
 
@@ -99,7 +99,7 @@ function stopBridgeServer() {
           if (process.platform === "win32") {
             execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: "ignore" });
           } else {
-            proc.kill("SIGKILL");
+            process.kill(-proc.pid, "SIGKILL");
           }
         } catch { /* process already gone */ }
       }
@@ -113,7 +113,11 @@ function stopBridgeServer() {
       sendLog("info", "Server stopped");
       resolve();
     });
-    proc.kill();
+    if (process.platform === "win32") {
+      proc.kill();
+    } else {
+      process.kill(-proc.pid, "SIGTERM");
+    }
   });
 }
 
@@ -233,6 +237,22 @@ function registerIpcHandlers() {
 
   ipcMain.handle("get-server-status", () => {
     return { running: serverProcess !== null, port: store.get().port };
+  });
+
+  ipcMain.handle("install-inspector", () => {
+    const config = store.get();
+    if (!config.projectPath) return { ok: false, error: "No project folder set" };
+    const srcFile = path.join(projectRoot, "src", "plugin", "BridgeInspector.js");
+    const destDir = path.join(config.projectPath, "js", "plugins");
+    const destFile = path.join(destDir, "BridgeInspector.js");
+    if (!existsSync(srcFile)) return { ok: false, error: "BridgeInspector.js not found in HeroLink installation" };
+    try {
+      if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+      copyFileSync(srcFile, destFile);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
   });
 }
 

@@ -178,7 +178,9 @@ Key rules for working with HeroLink:
             <p style="margin:4px 0 0 16px;">Make sure <code>RPGMV_PROJECT_DIR</code> points to a valid RPG Maker project containing <code>Game.rpgproject</code> (MV) or <code>Game.mzproject</code> (MZ).</p></details>
           <details><summary style="cursor:pointer;font-weight:600;">Permission issues on Windows</summary>
             <p style="margin:4px 0 0 16px;">On Windows, use <code>npx.cmd</code> if <code>npx</code> fails. Make sure Node.js is installed and available in your PATH.</p></details>
-          <details><summary style="cursor:pointer;font-weight:600;">Can I run the HTTP server (GUI) and MCP server at the same time?</summary>
+          <details><summary style="cursor:pointer;font-weight:600;">inspect_runtime and preview_entity tools don't work</summary>
+            <p style="margin:4px 0 0 16px;">These tools require the optional <code>BridgeInspector.js</code> plugin to be installed in your RPG Maker project and running in-game. Copy the plugin from HeroLink's <code>src/plugin/BridgeInspector.js</code> to your project's <code>js/plugins/</code> folder, add it to your plugin list, and start the game. All other tools work without it.</p></details>
+          <details><summary style="cursor:pointer;font-weight:600;margin-top:8px;">Can I run the HTTP server (GUI) and MCP server at the same time?</summary>
             <p style="margin:4px 0 0 16px;">Yes — the HTTP server and MCP server are independent. The GUI uses HTTP, while your AI uses MCP. They can both access the same project simultaneously.</p></details>
         </div>
       </div>

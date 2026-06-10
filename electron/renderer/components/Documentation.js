@@ -37,8 +37,18 @@ const Documentation = {
             <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Audit</td><td style="padding:4px 8px;">validate_project_refs</td></tr>
             <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Draft</td><td style="padding:4px 8px;">create_item_draft, create_skill_draft, create_entity_draft, update_entity_draft, create_common_event_draft, create_map_event_draft, set_plugin_param_draft, add_plugin_draft</td></tr>
             <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Apply</td><td style="padding:4px 8px;">apply_patch, rollback_last_patch, discard_pending_changes, list_backups, list_pending_changes, diff_pending_changes</td></tr>
-            <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Engine</td><td style="padding:4px 8px;">inspect_runtime, preview_entity</td></tr>
+            <tr><td style="padding:4px 8px;font-weight:600;color:var(--accent);">Engine</td><td style="padding:4px 8px;">inspect_runtime, preview_entity <span style="color:var(--warning);font-size:11px;">(requires BridgeInspector plugin)</span></td></tr>
           </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;border-left:3px solid var(--warning);">
+        <h3 style="margin:0 0 8px;font-size:14px;font-weight:600;">🔌 BridgeInspector (Optional)</h3>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;">
+          <p style="margin:0 0 8px;">Enables <strong>inspect_runtime</strong> and <strong>preview_entity</strong> tools for in-game inspection. Requires the BridgeInspector plugin in your RPG Maker project.</p>
+          <p style="margin:0 0 8px;">Install it with one click:</p>
+          <button class="btn btn-primary btn-sm" onclick="Documentation.installInspector()" id="btn-install-inspector">Install BridgeInspector to Project</button>
+          <span id="install-inspector-status" style="margin-left:8px;font-size:11px;"></span>
         </div>
       </div>
 
@@ -96,6 +106,28 @@ npx tsx src/cli.ts rollback path/to/project</pre>
       navigator.clipboard.writeText(pre.textContent).catch(() => {});
       btn.textContent = "Copied!";
       setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+    }
+  },
+
+  async installInspector() {
+    const statusEl = document.getElementById("install-inspector-status");
+    const btn = document.getElementById("btn-install-inspector");
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = "Installing...";
+
+    const result = await window.heroLinkAPI.installInspector();
+
+    if (result.ok) {
+      if (statusEl) {
+        statusEl.textContent = "Installed to js/plugins/BridgeInspector.js";
+        statusEl.style.color = "var(--success)";
+      }
+    } else {
+      if (statusEl) {
+        statusEl.textContent = result.error || "Install failed";
+        statusEl.style.color = "var(--danger)";
+      }
+      if (btn) btn.disabled = false;
     }
   },
 };
