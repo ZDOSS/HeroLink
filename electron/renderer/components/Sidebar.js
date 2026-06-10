@@ -1,6 +1,7 @@
 const Sidebar = {
   items: [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
+    { id: "ai", label: "AI Integration", icon: "🧠" },
     { id: "entities", label: "Entities", icon: "🗂️" },
     { id: "maps", label: "Maps & Events", icon: "🗺️" },
     { id: "plugins", label: "Plugins", icon: "🔌" },

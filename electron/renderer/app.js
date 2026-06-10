@@ -52,6 +52,9 @@ const App = {
       case "settings":
         main.innerHTML = ProjectSettings.render();
         break;
+      case "ai":
+        main.innerHTML = AIIntegration.render();
+        break;
       case "entities":
         main.innerHTML = EntityBrowser.render();
         EntityBrowser.attach();
