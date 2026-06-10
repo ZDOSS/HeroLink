@@ -50,7 +50,7 @@ const MapsEvents = {
       return;
     }
     el.innerHTML = maps.map((m, i) => `
-      <div class="table-row ${this._selectedMapId === m.id ? "" : ""}"
+      <div class="table-row"
            style="cursor:pointer;display:flex;justify-content:space-between;${this._selectedMapId === m.id ? "background:var(--accent-light);" : ""}"
            onclick="MapsEvents.selectMap(${m.id})">
         <span>${this.escapeHtml(m.name)}</span>
@@ -61,7 +61,7 @@ const MapsEvents = {
 
   async selectMap(mapId) {
     this._selectedMapId = mapId;
-    this.loadMaps();
+    await this.loadMaps();
     const el = document.getElementById("me-event-list");
     if (!el) return;
     el.innerHTML = '<div style="padding:12px;text-align:center;">⏳ Loading...</div>';
