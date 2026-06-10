@@ -52,6 +52,22 @@ const App = {
       case "settings":
         main.innerHTML = ProjectSettings.render();
         break;
+      case "entities":
+        main.innerHTML = EntityBrowser.render();
+        EntityBrowser.attach();
+        break;
+      case "maps":
+        main.innerHTML = MapsEvents.render();
+        MapsEvents.attach();
+        break;
+      case "plugins":
+        main.innerHTML = PluginsManager.render();
+        PluginsManager.attach();
+        break;
+      case "backups":
+        main.innerHTML = BackupsView.render();
+        BackupsView.attach();
+        break;
       case "pending":
         main.innerHTML = loading;
         main.innerHTML = await PendingChanges.render();

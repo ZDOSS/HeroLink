@@ -86,4 +86,24 @@ const BridgeAPI = {
   async createEntity(type, fields) {
     return this.callTool("create_entity_draft", { type, fields: this._clean(fields) });
   },
+
+  async getEntity(type, id) {
+    return this.callTool("get_entity", { type, id });
+  },
+
+  async getMapEvents(mapId) {
+    return this.callTool("get_map_events", { mapId });
+  },
+
+  async searchEvents(query) {
+    return this.callTool("search_events", { query });
+  },
+
+  async searchNotes(query) {
+    return this.callTool("search_notes", { query });
+  },
+
+  async rollbackLast() {
+    return this.callTool("rollback_last_patch");
+  },
 };
