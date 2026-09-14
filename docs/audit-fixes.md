@@ -59,7 +59,7 @@ Transactions protect against cooperating HeroLink processes and detect observed 
 
 On Linux with Node 26.8.1:
 
-- `npm run check`: passed, 387 tests; 92.71% overall line coverage and 85.08% branch coverage. Every configured critical-directory threshold passed.
+- `npm run check`: passed, 389 tests; 92.71% overall line coverage and 85.08% branch coverage. Every configured critical-directory threshold passed.
 - `npm run build`: passed.
 - `xvfb-run -a npm run test:e2e`: passed the native Electron workflow, seven main-view accessibility checks, review-modal accessibility and keyboard focus checks. Screenshots were inspected at normal and minimum window sizes.
 - `npm audit`: zero reported vulnerabilities, including development dependencies.

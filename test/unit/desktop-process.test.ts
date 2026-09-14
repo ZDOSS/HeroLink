@@ -31,6 +31,7 @@ function server(options: object = {}) {
   }));
   const spawnProcess = vi.fn(() => proc);
   const kill = vi.fn();
+  const exec = vi.fn((_command, _args, _options, done) => done(null));
   const status = vi.fn();
   const log = vi.fn();
   const bridge = new BridgeProcess({
@@ -38,6 +39,9 @@ function server(options: object = {}) {
     fetchRequest,
     spawnProcess,
     kill,
+    exec,
+    // Keep simulated process behavior independent of the host running Vitest.
+    platform: "linux",
     status,
     log,
     startupMs: 100,
@@ -49,6 +53,7 @@ function server(options: object = {}) {
     fetchRequest,
     spawnProcess,
     kill,
+    exec,
     status,
     log,
     bridge,
@@ -92,12 +97,24 @@ describe("desktop settings persistence", () => {
 });
 
 describe("desktop bridge lifecycle", () => {
-  it.each([false, true])("authenticates readiness and requests; packaged=%s", async (packaged) => {
-    const s = server({ packaged });
+  it.each([
+    ["linux", false],
+    ["linux", true],
+    ["win32", false],
+    ["win32", true],
+  ])("authenticates readiness and requests; platform=%s packaged=%s", async (platform, packaged) => {
+    const s = server({ platform, packaged });
     await s.bridge.start(s.config);
     expect(s.bridge.ready).toBe(true);
     const [command, args, options] = s.spawnProcess.mock.calls[0];
-    expect(args.join(" ")).toContain(packaged ? "dist/http/server.js" : "src/http/server.ts");
+    const entrypoint = join(s.root, packaged ? "dist/http/server.js" : "src/http/server.ts");
+    expect(args).toEqual(
+      packaged
+        ? [entrypoint]
+        : ["tsx", platform === "win32" ? `"${entrypoint}"` : `'${entrypoint}'`],
+    );
+    expect(command).toBe(packaged ? process.execPath : "npx");
+    expect(options.shell).toBe(packaged ? undefined : true);
     expect(options.env.HEROLINK_TOKEN).toMatch(/^[a-f0-9]{64}$/);
     expect(s.fetchRequest.mock.calls[0][1].headers.Authorization).toBe(
       `Bearer ${options.env.HEROLINK_TOKEN}`,
@@ -138,13 +155,23 @@ describe("desktop bridge lifecycle", () => {
     });
     await expect(s.bridge.callTool("list_entities")).rejects.toThrow("HTTP 502");
     await s.bridge.stop();
-    expect(s.kill.mock.calls).toEqual([
-      [-s.proc.pid, "SIGTERM"],
-      [-s.proc.pid, "SIGKILL"],
-    ]);
+    if (platform === "win32") {
+      expect(s.exec.mock.calls[0].slice(0, 2)).toEqual([
+        "taskkill",
+        ["/F", "/T", "/PID", String(s.proc.pid)],
+      ]);
+      expect(s.kill).not.toHaveBeenCalled();
+    } else {
+      expect(s.kill.mock.calls).toEqual([
+        [-s.proc.pid, "SIGTERM"],
+        [-s.proc.pid, "SIGKILL"],
+      ]);
+      expect(s.exec).not.toHaveBeenCalled();
+    }
     await expect(s.bridge.callTool("list_entities")).rejects.toThrow("not ready");
     await s.bridge.stop();
-    expect(s.kill).toHaveBeenCalledTimes(2);
+    expect(s.kill).toHaveBeenCalledTimes(platform === "win32" ? 0 : 2);
+    expect(s.exec).toHaveBeenCalledTimes(platform === "win32" ? 1 : 0);
   });
   it.each(["wrong project", "unauthorized", "unreachable", "exited", "spawn error"])(
     "fails readiness on %s and cleans up",

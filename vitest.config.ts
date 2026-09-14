@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     include: ["test/unit/**/*.test.ts", "test/integration/**/*.test.ts"],
     environment: "node",
+    // Multi-operation recovery tests fsync/rename many files and start child
+    // processes. Windows CI exceeds the default 5s even when every assertion passes.
+    testTimeout: 30000,
     coverage: {
       provider: "v8",
       include: [
