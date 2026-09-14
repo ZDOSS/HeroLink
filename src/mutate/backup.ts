@@ -1,103 +1,124 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
+import { dirname } from "node:path";
 import writeFileAtomic from "write-file-atomic";
+import { z } from "zod";
+import { IoError } from "../errors.js";
+import { withProjectLock } from "../io/lock.js";
+import { resolveProjectPathSafe } from "../io/paths.js";
 import { hashContent } from "../model/hash.js";
+import { getRelPath } from "./paths.js";
 
-export interface TransactionRecord {
-  id: string;
-  timestamp: string;
-  files: string[];
-  preHashes: Record<string, string>;
-}
+export const TransactionId = z.string().regex(/^t-[0-9]+-[a-f0-9-]+$/);
+const hashes = z.record(z.string().regex(/^(?:[a-f0-9]{64})?$/));
+export const TransactionSchema = z
+  .object({
+    id: TransactionId,
+    timestamp: z.string().datetime(),
+    files: z.array(z.string()).min(1),
+    preHashes: hashes,
+    postHashes: hashes.optional(),
+  })
+  .strict();
+export type TransactionRecord = z.infer<typeof TransactionSchema>;
 
 export class Backup {
-  private readonly bridgeDir: string;
-  private readonly journalPath: string;
-
-  constructor(projectDir: string) {
-    this.bridgeDir = join(projectDir, ".bridge");
-    this.journalPath = join(this.bridgeDir, "journal.jsonl");
+  constructor(readonly projectDir: string) {
+    this.projectDir = realpathSync(projectDir);
   }
-
-  createBackup(transactionId: string, files: string[]): Record<string, string> {
-    const backupDir = join(this.bridgeDir, "backups", transactionId);
-    mkdirSync(backupDir, { recursive: true });
-
-    const preHashes: Record<string, string> = {};
-    for (const file of files) {
-      if (!existsSync(file)) {
-        // New file — no backup needed, but record empty hash for rollback
-        preHashes[file] = "";
-        continue;
+  private path(file: string): string {
+    return resolveProjectPathSafe(this.projectDir, file);
+  }
+  createBackup(
+    transactionId: string,
+    files: string[],
+    captured?: Map<string, string | null>,
+  ): Record<string, string> {
+    return withProjectLock(this.projectDir, () => {
+      const preHashes: Record<string, string> = {};
+      for (const file of files) {
+        const safe = this.path(file);
+        const content = captured?.has(file)
+          ? captured.get(file)
+          : existsSync(safe)
+            ? readFileSync(safe, "utf8")
+            : null;
+        preHashes[file] = content == null ? "" : hashContent(content);
+        if (content == null) continue;
+        const backup = this.path(
+          `${getRelPath(this.getBackupDir(transactionId), this.projectDir)}/${getRelPath(safe, this.projectDir)}`,
+        );
+        mkdirSync(dirname(backup), { recursive: true });
+        writeFileAtomic.sync(this.path(backup), content, "utf8");
       }
-
-      const content = readFileSync(file, "utf-8");
-      preHashes[file] = hashContent(content);
-
-      const relPath = file.replace(/\\/g, "/").split("/").slice(-2).join("/");
-      const backupPath = join(backupDir, relPath);
-      mkdirSync(join(backupPath, ".."), { recursive: true });
-      copyFileSync(file, backupPath);
-    }
-
-    return preHashes;
+      return preHashes;
+    });
   }
-
   recordTransaction(
     transactionId: string,
     files: string[],
     preHashes: Record<string, string>,
+    postHashes?: Record<string, string>,
   ): void {
-    const record: TransactionRecord = {
-      id: transactionId,
-      timestamp: new Date().toISOString(),
-      files,
-      preHashes,
-    };
-
-    // Read existing content, append new record, write atomically
-    let existingContent = "";
-    if (existsSync(this.journalPath)) {
-      existingContent = readFileSync(this.journalPath, "utf-8");
-    }
-    const newContent = `${existingContent}${JSON.stringify(record)}\n`;
-    writeFileAtomic.sync(this.journalPath, newContent, "utf-8");
+    withProjectLock(this.projectDir, () =>
+      this.replaceTransactions([
+        ...this.listTransactions(),
+        { id: transactionId, timestamp: new Date().toISOString(), files, preHashes, postHashes },
+      ]),
+    );
   }
-
+  validate(record: TransactionRecord): void {
+    TransactionSchema.parse(record);
+    for (const file of record.files) {
+      const rel = getRelPath(this.path(file), this.projectDir);
+      if (!/^(?:data\/[^/]+\.json|js\/plugins\/[^/]+\.js|js\/plugins\.js)$/.test(rel))
+        throw new IoError(file, "Invalid transaction destination");
+      if (!(file in record.preHashes) || (record.postHashes && !(file in record.postHashes)))
+        throw new IoError(file, "Missing transaction hash");
+    }
+    if (new Set(record.files).size !== record.files.length)
+      throw new IoError(record.id, "Duplicate transaction destinations");
+  }
   listTransactions(): TransactionRecord[] {
-    if (!existsSync(this.journalPath)) {
-      return [];
-    }
-    const content = readFileSync(this.journalPath, "utf-8");
-    const transactions: TransactionRecord[] = [];
-    for (const line of content.split("\n")) {
-      if (!line.trim()) continue;
+    return withProjectLock(this.projectDir, () => {
+      const path = this.path(".bridge/journal.jsonl");
+      if (!existsSync(path)) return [];
       try {
-        transactions.push(JSON.parse(line) as TransactionRecord);
-      } catch {
-        // Skip malformed lines to prevent journal corruption from breaking operations
+        return readFileSync(path, "utf8")
+          .split("\n")
+          .filter((line) => line.trim())
+          .map((line) => {
+            const record = TransactionSchema.parse(JSON.parse(line));
+            this.validate(record);
+            return record;
+          });
+      } catch (error) {
+        throw new IoError(path, error);
       }
-    }
-    return transactions;
+    });
   }
-
+  replaceTransactions(records: TransactionRecord[]): void {
+    withProjectLock(this.projectDir, () => {
+      for (const record of records) this.validate(record);
+      writeFileAtomic.sync(
+        this.path(".bridge/journal.jsonl"),
+        records.map((r) => JSON.stringify(r)).join("\n") + (records.length ? "\n" : ""),
+        "utf8",
+      );
+    });
+  }
   getLastTransaction(): TransactionRecord | undefined {
-    const transactions = this.listTransactions();
-    return transactions[transactions.length - 1];
+    return this.listTransactions().at(-1);
   }
-
-  removeTransaction(transactionId: string): void {
-    const transactions = this.listTransactions();
-    const filtered = transactions.filter((t) => t.id !== transactionId);
-    const content = filtered.map((t) => JSON.stringify(t)).join("\n");
-    writeFileAtomic.sync(this.journalPath, content ? `${content}\n` : "", "utf-8");
+  removeTransaction(id: string): void {
+    withProjectLock(this.projectDir, () =>
+      this.replaceTransactions(this.listTransactions().filter((t) => t.id !== id)),
+    );
   }
-
-  getBackupDir(transactionId: string): string {
-    return join(this.bridgeDir, "backups", transactionId);
+  getBackupDir(id: string): string {
+    TransactionId.parse(id);
+    return this.path(`.bridge/backups/${id}`);
   }
-
-  backupExists(transactionId: string): boolean {
-    return existsSync(this.getBackupDir(transactionId));
+  backupExists(id: string): boolean {
+    return existsSync(this.getBackupDir(id));
   }
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { type PluginEntry, readPluginsJs, serializePluginsJs } from "../io/pluginsJs.js";
 import type { EngineAdapter, WritePlan } from "./adapter.js";
 
-const MvAnimationSchema = z
+export const MvAnimationSchema = z
   .object({
     id: z.number().int(),
     name: z.string(),
@@ -12,9 +12,9 @@ const MvAnimationSchema = z
     animation2Name: z.string(),
     animation2Hue: z.number().int(),
     position: z.number().int(),
-    frames: z.array(z.array(z.array(z.number().int()))),
+    frames: z.array(z.array(z.array(z.number()))),
     timings: z.array(z.unknown()),
-    note: z.string(),
+    note: z.string().optional(),
   })
   .passthrough();
 

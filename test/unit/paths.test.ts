@@ -12,7 +12,7 @@ describe("paths", () => {
   });
 
   it("resolveProjectPathSafe resolves relative paths", () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "rpgmv-path-test-"));
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), "rpgmv-path-test-")));
     mkdirSync(join(tempDir, "data"), { recursive: true });
     writeFileSync(join(tempDir, "data", "test.json"), "{}");
 
@@ -22,17 +22,17 @@ describe("paths", () => {
   });
 
   it("resolveProjectPathSafe rejects path traversal", () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "rpgmv-path-test-"));
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), "rpgmv-path-test-")));
     expect(() => resolveProjectPathSafe(tempDir, "../../etc/passwd")).toThrow(PathEscapeError);
   });
 
   it("resolveProjectPathSafe rejects absolute paths outside root", () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "rpgmv-path-test-"));
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), "rpgmv-path-test-")));
     expect(() => resolveProjectPathSafe(tempDir, "/etc/passwd")).toThrow(PathEscapeError);
   });
 
   it("resolveProjectPath resolves paths with realpath", () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "rpgmv-path-test-"));
+    const tempDir = realpathSync(mkdtempSync(join(tmpdir(), "rpgmv-path-test-")));
     mkdirSync(join(tempDir, "data"), { recursive: true });
     writeFileSync(join(tempDir, "data", "test.json"), "{}");
 

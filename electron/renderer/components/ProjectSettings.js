@@ -31,10 +31,7 @@ const ProjectSettings = {
             <input type="checkbox" id="settings-autostart" ${config.autoStartServer ? "checked" : ""} style="width:auto;">
             Auto-start server on launch
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="settings-confirm" ${config.confirmBeforeApply ? "checked" : ""} style="width:auto;">
-            Require confirmation before apply
-          </label>
+          <p>Applying changes always requires reviewing the current diff.</p>
         </div>
 
         <button class="btn btn-primary" onclick="ProjectSettings.save()">Save & Restart Server</button>
@@ -49,19 +46,41 @@ const ProjectSettings = {
 
   async save() {
     const projectPath = document.getElementById("settings-project-path").value || null;
-    const port = parseInt(document.getElementById("settings-port").value, 10) || 8866;
+    const port = Number(document.getElementById("settings-port").value);
     const host = document.getElementById("settings-host").value || "127.0.0.1";
     const autoStartServer = document.getElementById("settings-autostart").checked;
-    const confirmBeforeApply = document.getElementById("settings-confirm").checked;
+    const confirmBeforeApply = true;
 
-    await window.heroLinkAPI.setConfig({ projectPath, port, host, autoStartServer, confirmBeforeApply });
+    try {
+      await window.heroLinkAPI.setConfig({
+        projectPath,
+        port,
+        host,
+        autoStartServer,
+        confirmBeforeApply,
+      });
+    } catch (error) {
+      Modal.show({
+        title: "Invalid settings",
+        body: this.escapeHtml(error.message),
+        confirmText: "Close",
+        cancelText: false,
+      });
+      return;
+    }
     HeroLinkState.set("config", await window.heroLinkAPI.getConfig());
 
     const result = await window.heroLinkAPI.restartServer();
     if (result.ok) {
       HeroLinkState.set("serverStatus", { ...HeroLinkState.get("serverStatus"), running: true });
+      await App.refreshProjectSummary();
+      await App.refreshPendingCount();
     } else if (result && result.error) {
-      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+      Modal.show({
+        title: "Server Error",
+        body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
+        confirmText: "OK",
+      });
     }
     App.updateHeader();
     App.updateSidebar();
@@ -70,11 +89,10 @@ const ProjectSettings = {
 
   _detectedEngine() {
     const summary = HeroLinkState.get("projectSummary");
-    return summary?.success && summary.data?.engine ? summary.data.engine.toUpperCase() : "MV";
+    return summary?.success && summary.data?.engine ? summary.data.engine.toUpperCase() : "Unknown";
   },
 
   escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return App.escapeHtml(str);
   },
 };

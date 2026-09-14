@@ -1,3 +1,6 @@
+import { isolatedFixture } from "../helpers/isolatedFixture.js";
+import { createMcpServer } from "../../src/index.js";
+import { TOOL_DEFS } from "../../src/tools/registry.js";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -6,36 +9,30 @@ import { join } from "node:path";
 import { loadProject } from "../../src/io/project.js";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
-  GetProjectStatusInput, getProjectStatus,
-  ListProjectDataInput, listProjectData,
-  ListEntitiesInput, listEntities,
-  GetEntityInput, getEntity,
-  ListMapsInput, listMaps,
-  GetMapEventsInput, getMapEvents,
-  SearchEventsInput, searchEvents,
-  SearchNotesInput, searchNotes,
-  ListPluginsInput, listPlugins,
-  ValidateProjectRefsInput, validateProjectRefs,
+  GetProjectStatusInput,
+  getProjectStatus,
+  ListProjectDataInput,
+  listProjectData,
+  ListEntitiesInput,
+  listEntities,
+  GetEntityInput,
+  getEntity,
+  ListMapsInput,
+  listMaps,
+  GetMapEventsInput,
+  getMapEvents,
+  SearchEventsInput,
+  searchEvents,
+  SearchNotesInput,
+  searchNotes,
+  ListPluginsInput,
+  listPlugins,
+  ValidateProjectRefsInput,
+  validateProjectRefs,
 } from "../../src/tools/index.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const SAMPLE_DIR = join(process.cwd(), "test", "fixtures", "sample-project");
-
-const TOOL_DEFS = [
-  { name: "get_project_status", inputSchema: GetProjectStatusInput, handler: getProjectStatus },
-  { name: "list_project_data", inputSchema: ListProjectDataInput, handler: listProjectData },
-  { name: "list_entities", inputSchema: ListEntitiesInput, handler: listEntities },
-  { name: "get_entity", inputSchema: GetEntityInput, handler: getEntity },
-  { name: "list_maps", inputSchema: ListMapsInput, handler: listMaps },
-  { name: "get_map_events", inputSchema: GetMapEventsInput, handler: getMapEvents },
-  { name: "search_events", inputSchema: SearchEventsInput, handler: searchEvents },
-  { name: "search_notes", inputSchema: SearchNotesInput, handler: searchNotes },
-  { name: "list_plugins", inputSchema: ListPluginsInput, handler: listPlugins },
-  { name: "validate_project_refs", inputSchema: ValidateProjectRefsInput, handler: validateProjectRefs },
-];
+const SAMPLE_DIR = isolatedFixture("sample-project");
 
 describe("MCP contract tests", () => {
   let client: Client;
@@ -44,33 +41,7 @@ describe("MCP contract tests", () => {
   beforeAll(async () => {
     const project = loadProject(SAMPLE_DIR);
 
-    server = new Server(
-      { name: "rpgmv-bridge-test", version: "0.1.0" },
-      { capabilities: { tools: {} } },
-    );
-
-    server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: TOOL_DEFS.map((t) => ({
-        name: t.name,
-        description: t.name,
-        inputSchema: zodToJsonSchema(t.inputSchema),
-      })),
-    }));
-
-    server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      const def = TOOL_DEFS.find((t) => t.name === name);
-      if (!def) {
-        return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
-      }
-      try {
-        const parsed = def.inputSchema.parse(args ?? {});
-        const result = def.handler(project, parsed as never);
-        return { content: [{ type: "text", text: JSON.stringify(result) }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: String(err) }], isError: true };
-      }
-    });
+    server = createMcpServer(project);
 
     client = new Client({ name: "test-client", version: "0.1.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -83,9 +54,9 @@ describe("MCP contract tests", () => {
     await server.close();
   });
 
-  it("lists all 10 v1+v2 tools", async () => {
+  it("lists the production tool registry", async () => {
     const result = await client.listTools();
-    expect(result.tools).toHaveLength(10);
+    expect(result.tools.map((t) => t.name)).toEqual(TOOL_DEFS.map((t) => t.name));
     const names = result.tools.map((t) => t.name);
     expect(names).toContain("get_project_status");
     expect(names).toContain("list_project_data");
@@ -123,20 +94,29 @@ describe("MCP contract tests", () => {
   });
 
   it("list_entities supports query filter", async () => {
-    const result = await client.callTool({ name: "list_entities", arguments: { type: "Item", query: "potion" } });
+    const result = await client.callTool({
+      name: "list_entities",
+      arguments: { type: "Item", query: "potion" },
+    });
     const data = JSON.parse((result.content[0] as { text: string }).text);
     expect(data.total).toBe(1);
   });
 
   it("get_entity returns full entity", async () => {
-    const result = await client.callTool({ name: "get_entity", arguments: { type: "Item", id: 1 } });
+    const result = await client.callTool({
+      name: "get_entity",
+      arguments: { type: "Item", id: 1 },
+    });
     const data = JSON.parse((result.content[0] as { text: string }).text);
     expect(data.entity.name).toBe("Potion");
     expect(data.meta.type).toBe("healing");
   });
 
   it("get_entity returns error for missing entity", async () => {
-    const result = await client.callTool({ name: "get_entity", arguments: { type: "Item", id: 999 } });
+    const result = await client.callTool({
+      name: "get_entity",
+      arguments: { type: "Item", id: 999 },
+    });
     expect(result.isError).toBe(true);
   });
 

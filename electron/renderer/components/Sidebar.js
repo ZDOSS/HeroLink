@@ -16,20 +16,22 @@ const Sidebar = {
   render() {
     const currentView = HeroLinkState.get("currentView");
     const pendingCount = HeroLinkState.get("pendingChangesCount");
+    const stale = HeroLinkState.get("pendingCountStale");
     const items = this.items
       .map((item) => {
         const active = item.id === currentView ? "active" : "";
-        const badge = item.badgeKey && pendingCount > 0
-          ? `<span class="badge badge-danger" style="margin-left:auto;">${pendingCount > 99 ? "99+" : pendingCount}</span>`
-          : "";
+        const badge =
+          item.badgeKey && pendingCount > 0
+            ? `<span class="badge badge-danger" title="${stale ? "Last known count; refresh pending changes" : "Pending changes"}" style="margin-left:auto;">${pendingCount > 99 ? "99+" : pendingCount}${stale ? "?" : ""}</span>`
+            : "";
         return `
-          <div class="nav-item ${active}" onclick="Sidebar.navigate('${item.id}')">
+          <button type="button" class="nav-item ${active}" aria-current="${active ? "page" : "false"}" onclick="Sidebar.navigate('${item.id}')">
             <span style="display:flex;align-items:center;gap:8px;">
               <span>${item.icon}</span>
               <span>${item.label}</span>
               ${badge}
             </span>
-          </div>
+          </button>
         `;
       })
       .join("");
@@ -47,7 +49,15 @@ const Sidebar = {
   navigate(viewId) {
     HeroLinkState.set("currentView", viewId);
     HeroLinkState.set("config", { ...HeroLinkState.get("config"), lastView: viewId });
-    window.heroLinkAPI.setConfig({ lastView: viewId });
+    window.heroLinkAPI
+      .setConfig({ lastView: viewId })
+      .catch((error) =>
+        Logs.append({
+          level: "error",
+          message: error.message,
+          timestamp: new Date().toISOString(),
+        }),
+      );
     App.renderView(viewId);
     this.update();
   },

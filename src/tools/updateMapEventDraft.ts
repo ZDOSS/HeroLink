@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NotFoundError } from "../errors.js";
 import type { Project } from "../io/project.js";
 import type { Staging } from "../mutate/staging.js";
 import { ConstrainedCommandSchema, compileCommandList } from "../schema/commands.js";
@@ -71,16 +72,17 @@ export const UpdateMapEventDraftOutput = z.object({
 export function updateMapEventDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof UpdateMapEventDraftInput>,
+  rawInput: z.infer<typeof UpdateMapEventDraftInput>,
 ) {
+  const input = UpdateMapEventDraftInput.parse(rawInput);
   const map = project.model.maps.get(input.mapId);
   if (!map) {
-    throw new Error(`Map ${input.mapId} not found`);
+    throw new NotFoundError(`Map ${input.mapId} not found`);
   }
 
   const event = map.events.find((e) => e !== null && e.id === input.eventId);
   if (!event) {
-    throw new Error(`Event ${input.eventId} not found on map ${input.mapId}`);
+    throw new NotFoundError(`Event ${input.eventId} not found on map ${input.mapId}`);
   }
 
   const patch: Record<string, unknown> = {};
@@ -105,36 +107,11 @@ export function updateMapEventDraft(
       );
     }
 
-    const existingPage = { ...pages[input.pageIndex] } as Record<string, unknown>;
-
-    if (input.page.conditions) {
-      existingPage.conditions = {
-        ...(existingPage.conditions as Record<string, unknown>),
-        ...input.page.conditions,
-      };
-    }
-    if (input.page.commands) {
-      existingPage.list = compileCommandList(input.page.commands);
-    }
-    if (input.page.directionFix !== undefined) existingPage.directionFix = input.page.directionFix;
-    if (input.page.image) {
-      existingPage.image = {
-        ...(existingPage.image as Record<string, unknown>),
-        ...input.page.image,
-      };
-    }
-    if (input.page.moveFrequency !== undefined)
-      existingPage.moveFrequency = input.page.moveFrequency;
-    if (input.page.moveSpeed !== undefined) existingPage.moveSpeed = input.page.moveSpeed;
-    if (input.page.moveType !== undefined) existingPage.moveType = input.page.moveType;
-    if (input.page.priorityType !== undefined) existingPage.priorityType = input.page.priorityType;
-    if (input.page.stepAnime !== undefined) existingPage.stepAnime = input.page.stepAnime;
-    if (input.page.through !== undefined) existingPage.through = input.page.through;
-    if (input.page.trigger !== undefined) existingPage.trigger = input.page.trigger;
-    if (input.page.walkAnime !== undefined) existingPage.walkAnime = input.page.walkAnime;
-
-    pages[input.pageIndex] = existingPage;
-    patch.pages = pages;
+    const { commands, ...pageFields } = input.page;
+    const fields: Record<string, unknown> = { ...pageFields };
+    if (commands) fields.list = compileCommandList(commands);
+    // Store the user's granular edit; sequential drafts compose at apply time.
+    patch.pagePatch = { index: input.pageIndex, fields };
   }
 
   const changeId = staging.addUpdateMapEvent(input.mapId, input.eventId, patch);

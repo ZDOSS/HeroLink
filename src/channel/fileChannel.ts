@@ -1,321 +1,207 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmdirSync } from "node:fs";
 import writeFileAtomic from "write-file-atomic";
+import { z } from "zod";
+import { ConflictError, IoError } from "../errors.js";
+import { resolveProjectPathSafe } from "../io/paths.js";
 
-export interface BridgeCommand {
-  id: string;
-  command: string;
-  args?: Record<string, unknown>;
-}
-
-export interface BridgeResponse {
-  id: string | null;
-  command: string;
-  success: boolean;
-  result: unknown;
-  error: string | null;
-}
-
-export interface RuntimeState {
-  timestamp: number;
-  game: {
-    title: string;
-    versionId: number;
-  } | null;
-  party: {
-    members: Array<{
-      id: number;
-      name: string;
-      level: number;
-      hp: number;
-      mp: number;
-      tp: number;
-    }>;
-    gold: number;
-  } | null;
-  map: {
-    mapId: number;
-    displayName: string;
-    playerX: number | null;
-    playerY: number | null;
-    playerDirection: number | null;
-  } | null;
-  switches: boolean[] | null;
-  variables: number[] | null;
-}
+const CommandSchema = z
+  .object({
+    id: z.string().uuid(),
+    command: z.enum(["INSPECT", "PREVIEW_ITEM", "PREVIEW_SKILL", "CLEAR_PREVIEW"]),
+    args: z.record(z.unknown()).optional(),
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
+const ResponseSchema = z.object({
+  id: z.string().uuid().nullable(),
+  command: z.string(),
+  success: z.boolean(),
+  result: z.unknown(),
+  error: z.string().nullable(),
+});
+export const RuntimeStateSchema = z.object({
+  timestamp: z.number().finite(),
+  game: z.object({ title: z.string(), versionId: z.number() }).nullable(),
+  party: z
+    .object({
+      members: z.array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          level: z.number(),
+          hp: z.number(),
+          mp: z.number(),
+          tp: z.number(),
+        }),
+      ),
+      gold: z.number(),
+    })
+    .nullable(),
+  map: z
+    .object({
+      mapId: z.number(),
+      displayName: z.string(),
+      playerX: z.number().nullable(),
+      playerY: z.number().nullable(),
+      playerDirection: z.number().nullable(),
+    })
+    .nullable(),
+  switches: z.array(z.boolean()).nullable(),
+  variables: z.array(z.unknown()).nullable(),
+});
+export type BridgeCommand = z.infer<typeof CommandSchema>;
+export type BridgeResponse = z.infer<typeof ResponseSchema>;
+export type RuntimeState = z.infer<typeof RuntimeStateSchema>;
 
 export class FileChannel {
-  private readonly channelDir: string;
-
-  constructor(projectDir: string, channelSubdir = ".bridge") {
-    this.channelDir = join(projectDir, channelSubdir);
+  constructor(
+    private readonly projectDir: string,
+    private readonly channelSubdir = ".bridge",
+  ) {
+    this.projectDir = realpathSync(projectDir);
+    z.string()
+      .regex(/^\.bridge(?:\/[A-Za-z0-9_-]+)*$/)
+      .parse(channelSubdir);
+    this.path("");
   }
-
-  /**
-   * Ensure the channel directory exists.
-   */
+  private path(name: string): string {
+    return resolveProjectPathSafe(this.projectDir, `${this.channelSubdir}/${name}`);
+  }
   ensureDirectory(): void {
-    if (!existsSync(this.channelDir)) {
-      mkdirSync(this.channelDir, { recursive: true });
+    mkdirSync(this.path(""), { recursive: true });
+  }
+  private read<T>(name: string, schema: z.ZodType<T>, missing: T): T {
+    if (!existsSync(this.path(name))) return missing;
+    try {
+      return schema.parse(JSON.parse(readFileSync(this.path(name), "utf8")));
+    } catch (error) {
+      throw new IoError(this.path(name), error);
     }
   }
-
-  /**
-   * Read the current runtime state written by the plugin.
-   */
+  private write(name: string, value: unknown): void {
+    writeFileAtomic.sync(this.path(name), JSON.stringify(value, null, 2), "utf8");
+  }
   readRuntimeState(): RuntimeState | null {
-    const filepath = join(this.channelDir, "runtime-state.json");
-    if (!existsSync(filepath)) {
-      return null;
-    }
-    try {
-      const content = readFileSync(filepath, "utf-8");
-      return JSON.parse(content) as RuntimeState;
-    } catch {
-      return null;
-    }
+    return this.read("runtime-state.json", RuntimeStateSchema.nullable(), null);
   }
-
-  /**
-   * Send a command to the plugin by writing to commands.json.
-   * Returns the command ID for tracking responses.
-   */
-  sendCommand(command: string, args?: Record<string, unknown>): string {
-    this.ensureDirectory();
-
-    const id = randomUUID();
-    const cmd: BridgeCommand = { id, command, args };
-
-    // Acquire command lock to prevent TOCTOU with plugin's clear
-    const cmdLockAcquired = this.ensureCommandLock();
-    if (!cmdLockAcquired) {
-      throw new Error("sendCommand: could not acquire command lock after retries");
-    }
-    try {
-      const commands = this.readCommands();
-      commands.push(cmd);
-
-      const filepath = join(this.channelDir, "commands.json");
-      writeFileAtomic.sync(filepath, JSON.stringify(commands, null, 2), "utf-8");
-    } finally {
-      this.releaseCommandLock();
-    }
-
-    return id;
+  private readCommands(): BridgeCommand[] {
+    return this.read("commands.json", CommandSchema.array(), []);
   }
-
-  /**
-   * Send multiple commands at once.
-   */
-  sendCommands(commands: Array<{ command: string; args?: Record<string, unknown> }>): string[] {
-    this.ensureDirectory();
-
-    const ids: string[] = [];
-    const cmdLockAcquired = this.ensureCommandLock();
-    if (!cmdLockAcquired) {
-      throw new Error("sendCommands: could not acquire command lock after retries");
-    }
-    try {
-      const existingCommands = this.readCommands();
-
-      for (const cmd of commands) {
-        const id = randomUUID();
-        existingCommands.push({ id, command: cmd.command, args: cmd.args });
-        ids.push(id);
-      }
-
-      const filepath = join(this.channelDir, "commands.json");
-      writeFileAtomic.sync(filepath, JSON.stringify(existingCommands, null, 2), "utf-8");
-    } finally {
-      this.releaseCommandLock();
-    }
-
-    return ids;
-  }
-
-  /**
-   * Read responses from the plugin.
-   */
   readResponses(): BridgeResponse[] {
-    const filepath = join(this.channelDir, "responses.json");
-    if (!existsSync(filepath)) {
-      return [];
-    }
+    return this.read("responses.json", ResponseSchema.array(), []);
+  }
+  // Both peers use atomic mkdir and fail closed on contention. Abandoned locks
+  // are never stolen from a potentially paused peer; recovery requires stopping
+  // the game and bridge, then removing the empty commands.lock/responses.lock.
+  private acquire(name: string): boolean {
+    this.ensureDirectory();
     try {
-      const content = readFileSync(filepath, "utf-8");
-      return JSON.parse(content) as BridgeResponse[];
-    } catch {
-      return [];
+      mkdirSync(this.path(`${name}.lock`));
+      return true;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "EEXIST") return false;
+      throw error;
     }
   }
-
-  /**
-   * Read and clear responses (atomic read-then-delete).
-   */
-  consumeResponses(): BridgeResponse[] {
-    const lockAcquired = this.acquireResponseLock();
-    if (!lockAcquired) {
-      // Lock contended — return current responses without clearing
-      return this.readResponses();
+  private release(name: string): void {
+    rmdirSync(this.path(`${name}.lock`));
+  }
+  sendCommand(command: string, args?: Record<string, unknown>, timeoutMs = 5000): string {
+    return this.sendCommands([{ command, args }], timeoutMs)[0];
+  }
+  sendCommands(
+    commands: Array<{ command: string; args?: Record<string, unknown> }>,
+    timeoutMs = 5000,
+  ): string[] {
+    z.number().int().positive().max(60000).parse(timeoutMs);
+    const pending = commands.map((cmd) =>
+      CommandSchema.parse({ ...cmd, id: randomUUID(), expiresAt: Date.now() + timeoutMs }),
+    );
+    const acquired = this.acquire("commands");
+    if (!acquired)
+      throw new ConflictError(
+        "Runtime commands are locked; retry after the game releases the lock",
+      );
+    try {
+      this.write("commands.json", [
+        ...this.readCommands().filter((c) => c.expiresAt > Date.now()),
+        ...pending,
+      ]);
+    } finally {
+      this.release("commands");
     }
+    return pending.map((c) => c.id);
+  }
+  consumeResponses(): BridgeResponse[] {
+    const acquired = this.acquire("responses");
+    if (!acquired) throw new ConflictError("Runtime responses are locked");
     try {
       const responses = this.readResponses();
-      if (responses.length > 0) {
-        const filepath = join(this.channelDir, "responses.json");
-        writeFileAtomic.sync(filepath, "[]", "utf-8");
-      }
+      this.write("responses.json", []);
       return responses;
     } finally {
-      this.releaseResponseLock();
+      this.release("responses");
     }
   }
-
-  /**
-   * Wait for a specific command response by ID.
-   * Polls responses.json until the response appears or timeout.
-   * Removes the matched response from the file after finding it.
-   */
   async waitForResponse(commandId: string, timeoutMs = 5000): Promise<BridgeResponse | null> {
-    const startTime = Date.now();
-    const pollInterval = 100; // ms
-
-    while (Date.now() - startTime < timeoutMs) {
-      const responses = this.readResponses();
-      const responseIndex = responses.findIndex((r) => r.id === commandId);
-
-      if (responseIndex !== -1) {
-        // Retry lock acquisition up to 3 times before falling back to
-        // unlocked removal (better to risk TOCTOU than leak responses).
-        const filepath = join(this.channelDir, "responses.json");
-        let lockAcquired = this.acquireResponseLock();
-        for (let retry = 0; !lockAcquired && retry < 3; retry++) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          lockAcquired = this.acquireResponseLock();
-        }
-        if (lockAcquired) {
-          try {
-            const currentResponses = this.readResponses();
-            const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
-            if (currentIndex !== -1) {
-              const remaining = currentResponses.filter((_, i) => i !== currentIndex);
-              writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
-            }
-          } finally {
-            this.releaseResponseLock();
-          }
-        } else {
-          // Unlocked fallback: best-effort removal to prevent response leak
-          const currentResponses = this.readResponses();
-          const currentIndex = currentResponses.findIndex((r) => r.id === commandId);
-          if (currentIndex !== -1) {
-            const remaining = currentResponses.filter((_, i) => i !== currentIndex);
-            writeFileAtomic.sync(filepath, JSON.stringify(remaining, null, 2), "utf-8");
-          }
-        }
-        return responses[responseIndex];
+    z.string().uuid().parse(commandId);
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const acquired = this.acquire("responses");
+      if (!acquired) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(25, Math.max(1, deadline - Date.now()))),
+        );
+        continue;
       }
-
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      try {
+        const responses = this.readResponses();
+        const response = responses.find((r) => r.id === commandId);
+        if (response) {
+          this.write(
+            "responses.json",
+            responses.filter((r) => r.id !== commandId),
+          );
+          return response;
+        }
+      } finally {
+        this.release("responses");
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(25, Math.max(1, deadline - Date.now()))),
+      );
     }
-
-    // Timeout: remove stale command from commands.json to prevent ghost previews
-    const commandsPath = join(this.channelDir, "commands.json");
-    const timeoutLockAcquired = this.ensureCommandLock();
-    if (!timeoutLockAcquired) {
-      return null;
-    }
+    // Each ID has its own atomic cancellation tombstone, independent of shared
+    // locks. The plugin checks this AND enqueue-time expiry before execution.
+    this.write(`${commandId}.cancelled`, { cancelled: true });
+    const acquired = this.acquire("commands");
+    if (!acquired) return null;
     try {
-      const staleCommands = this.readCommands();
-      const filtered = staleCommands.filter((c) => c.id !== commandId);
-      writeFileAtomic.sync(commandsPath, JSON.stringify(filtered, null, 2), "utf-8");
+      this.write(
+        "commands.json",
+        this.readCommands().filter((c) => c.id !== commandId),
+      );
     } finally {
-      this.releaseCommandLock();
+      this.release("commands");
     }
-
     return null;
   }
-
-  /**
-   * Clear all channel files (useful for testing).
-   */
   clear(): void {
-    this.ensureDirectory();
-    const files = ["commands.json", "responses.json", "runtime-state.json"];
-    for (const file of files) {
-      const filepath = join(this.channelDir, file);
-      if (existsSync(filepath)) {
-        // runtime-state.json holds an object, so clear with "null"
-        // commands.json and responses.json hold arrays, so clear with "[]"
-        const content = file === "runtime-state.json" ? "null" : "[]";
-        writeFileAtomic.sync(filepath, content, "utf-8");
+    const commands = this.acquire("commands");
+    if (!commands) throw new ConflictError("Runtime commands are locked");
+    try {
+      const responses = this.acquire("responses");
+      if (!responses) throw new ConflictError("Runtime responses are locked");
+      try {
+        this.write("commands.json", []);
+        this.write("responses.json", []);
+      } finally {
+        this.release("responses");
       }
+    } finally {
+      this.release("commands");
     }
-  }
-
-  /**
-   * Read commands from commands.json (internal helper).
-   */
-  private readCommands(): BridgeCommand[] {
-    const filepath = join(this.channelDir, "commands.json");
-    if (!existsSync(filepath)) {
-      return [];
-    }
-    try {
-      const content = readFileSync(filepath, "utf-8");
-      return JSON.parse(content) as BridgeCommand[];
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Acquire a lock file for cross-process coordination of responses.json.
-   * Uses an atomic mkdir operation (fails if dir already exists).
-   */
-  private lockPath(): string {
-    return join(this.channelDir, "responses.lock");
-  }
-
-  private commandsLockPath(): string {
-    return join(this.channelDir, "commands.lock");
-  }
-
-  private acquireResponseLock(): boolean {
-    const lockPath = this.lockPath();
-    try {
-      mkdirSync(lockPath);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  private releaseResponseLock(): void {
-    const lockPath = this.lockPath();
-    try {
-      rmSync(lockPath, { recursive: true, force: true });
-    } catch {
-      // Best effort
-    }
-  }
-
-  private ensureCommandLock(): boolean {
-    const lockPath = this.commandsLockPath();
-    try {
-      mkdirSync(lockPath);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  private releaseCommandLock(): void {
-    const lockPath = this.commandsLockPath();
-    try {
-      rmSync(lockPath, { recursive: true, force: true });
-    } catch {
-      // Best effort
-    }
+    // Runtime state has a single writer (the plugin); the bridge never overwrites it.
   }
 }

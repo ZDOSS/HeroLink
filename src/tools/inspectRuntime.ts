@@ -11,7 +11,7 @@ export const InspectRuntimeInput = z.object({
   /**
    * Timeout in milliseconds when waiting for plugin response.
    */
-  timeoutMs: z.number().int().positive().default(5000),
+  timeoutMs: z.number().int().positive().max(60000).default(5000),
 });
 
 export const InspectRuntimeOutput = z.object({
@@ -50,7 +50,7 @@ export const InspectRuntimeOutput = z.object({
         })
         .nullable(),
       switches: z.array(z.boolean()).nullable(),
-      variables: z.array(z.number()).nullable(),
+      variables: z.array(z.unknown()).nullable(),
     })
     .nullable(),
   error: z.string().nullable(),
@@ -75,7 +75,7 @@ export async function inspectRuntime(project: Project, input: z.infer<typeof Ins
 
   // If refresh requested, send INSPECT command
   if (input.refresh) {
-    const commandId = channel.sendCommand("INSPECT");
+    const commandId = channel.sendCommand("INSPECT", undefined, input.timeoutMs);
     const response = await channel.waitForResponse(commandId, input.timeoutMs);
 
     if (!response) {

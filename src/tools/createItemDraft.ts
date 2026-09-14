@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { Project } from "../io/project.js";
 import type { Staging } from "../mutate/staging.js";
 import { ItemSchema } from "../schema/entities.js";
+import { validateEntityFields } from "../schema/safety.js";
 
 export const CreateItemDraftInput = z.object({
-  fields: ItemSchema.partial().omit({ id: true }),
+  fields: ItemSchema.omit({ id: true }).strict(),
 });
 
 export const CreateItemDraftOutput = z.object({
@@ -22,8 +23,10 @@ export const CreateItemDraftOutput = z.object({
 export function createItemDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof CreateItemDraftInput>,
+  rawInput: z.infer<typeof CreateItemDraftInput>,
 ) {
+  const input = CreateItemDraftInput.parse(rawInput);
+  validateEntityFields("Item", input.fields, false, true);
   const changeId = staging.addCreate("Item", input.fields);
 
   const entities = project.model.listEntities("Item");

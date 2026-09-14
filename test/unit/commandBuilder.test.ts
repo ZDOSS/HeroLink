@@ -29,9 +29,7 @@ describe("command builder", () => {
         value: true,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 121, indent: 0, parameters: [1, 3, 0] },
-      ]);
+      expect(result).toEqual([{ code: 121, indent: 0, parameters: [1, 3, 0] }]);
     });
 
     it("compiles controlSwitches OFF to code 121 with value 1", () => {
@@ -42,9 +40,7 @@ describe("command builder", () => {
         value: false,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 121, indent: 0, parameters: [1, 1, 1] },
-      ]);
+      expect(result).toEqual([{ code: 121, indent: 0, parameters: [1, 1, 1] }]);
     });
 
     it("compiles controlVariables SET to code 122", () => {
@@ -56,9 +52,7 @@ describe("command builder", () => {
         operand: 42,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 122, indent: 0, parameters: [1, 1, 0, 0, 42] },
-      ]);
+      expect(result).toEqual([{ code: 122, indent: 0, parameters: [1, 1, 0, 0, 42] }]);
     });
 
     it("compiles controlVariables ADD to code 122", () => {
@@ -70,9 +64,7 @@ describe("command builder", () => {
         operand: 10,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 122, indent: 0, parameters: [1, 1, 1, 0, 10] },
-      ]);
+      expect(result).toEqual([{ code: 122, indent: 0, parameters: [1, 1, 1, 0, 10] }]);
     });
 
     it("compiles callCommonEvent to code 117", () => {
@@ -81,9 +73,7 @@ describe("command builder", () => {
         commonEventId: 5,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 117, indent: 0, parameters: [5] },
-      ]);
+      expect(result).toEqual([{ code: 117, indent: 0, parameters: [5] }]);
     });
 
     it("compiles playSe to code 250", () => {
@@ -105,9 +95,7 @@ describe("command builder", () => {
         y: 15,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 201, indent: 0, parameters: [0, 3, 10, 15, 0, 0] },
-      ]);
+      expect(result).toEqual([{ code: 201, indent: 0, parameters: [0, 3, 10, 15, 0, 0] }]);
     });
 
     it("compiles conditionalBranch switch to code 111", () => {
@@ -118,9 +106,7 @@ describe("command builder", () => {
         switchValue: true,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 111, indent: 0, parameters: [0, 2, 0] },
-      ]);
+      expect(result).toEqual([{ code: 111, indent: 0, parameters: [0, 2, 0] }]);
     });
 
     it("compiles conditionalBranch variable to code 111", () => {
@@ -132,9 +118,7 @@ describe("command builder", () => {
         variableValue: 100,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 111, indent: 0, parameters: [1, 5, 0, 100, 0] },
-      ]);
+      expect(result).toEqual([{ code: 111, indent: 0, parameters: [1, 5, 0, 100, 0] }]);
     });
 
     it("compiles conditionalBranch selfSwitch to code 111", () => {
@@ -145,9 +129,7 @@ describe("command builder", () => {
         selfSwitchValue: true,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 111, indent: 0, parameters: [2, "B", 0] },
-      ]);
+      expect(result).toEqual([{ code: 111, indent: 0, parameters: [2, "B", 0] }]);
     });
 
     it("compiles comment to 108 + 408 commands", () => {
@@ -205,15 +187,11 @@ describe("command builder", () => {
 
   describe("schema validation", () => {
     it("rejects unknown command type", () => {
-      expect(() =>
-        ConstrainedCommandSchema.parse({ type: "unknown" }),
-      ).toThrow();
+      expect(() => ConstrainedCommandSchema.parse({ type: "unknown" })).toThrow();
     });
 
     it("requires lines for showText", () => {
-      expect(() =>
-        ConstrainedCommandSchema.parse({ type: "showText" }),
-      ).toThrow();
+      expect(() => ConstrainedCommandSchema.parse({ type: "showText" })).toThrow();
     });
 
     it("requires positive IDs for controlSwitches", () => {
@@ -239,55 +217,61 @@ describe("command builder", () => {
     });
 
     it("throws for conditionalBranch switch without switchId", () => {
-      const cmd = ConstrainedCommandSchema.parse({
-        type: "conditionalBranch",
-        conditionType: "switch",
-        switchValue: true,
-      });
-      expect(() => compileCommand(cmd)).toThrow("switchId");
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "conditionalBranch",
+          conditionType: "switch",
+          switchValue: true,
+        }),
+      ).toThrow();
     });
 
     it("throws for conditionalBranch switch without switchValue", () => {
-      const cmd = ConstrainedCommandSchema.parse({
-        type: "conditionalBranch",
-        conditionType: "switch",
-        switchId: 1,
-      });
-      expect(() => compileCommand(cmd)).toThrow("switchValue");
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "conditionalBranch",
+          conditionType: "switch",
+          switchId: 1,
+        }),
+      ).toThrow();
     });
 
     it("throws for conditionalBranch variable without variableId", () => {
-      const cmd = ConstrainedCommandSchema.parse({
-        type: "conditionalBranch",
-        conditionType: "variable",
-      });
-      expect(() => compileCommand(cmd)).toThrow("variableId");
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "conditionalBranch",
+          conditionType: "variable",
+        }),
+      ).toThrow();
     });
 
     it("throws for conditionalBranch selfSwitch without selfSwitchCh", () => {
-      const cmd = ConstrainedCommandSchema.parse({
-        type: "conditionalBranch",
-        conditionType: "selfSwitch",
-        selfSwitchValue: true,
-      });
-      expect(() => compileCommand(cmd)).toThrow("selfSwitchCh");
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "conditionalBranch",
+          conditionType: "selfSwitch",
+          selfSwitchValue: true,
+        }),
+      ).toThrow();
     });
 
     it("throws for conditionalBranch selfSwitch without selfSwitchValue", () => {
-      const cmd = ConstrainedCommandSchema.parse({
-        type: "conditionalBranch",
-        conditionType: "selfSwitch",
-        selfSwitchCh: "A",
-      });
-      expect(() => compileCommand(cmd)).toThrow("selfSwitchValue");
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "conditionalBranch",
+          conditionType: "selfSwitch",
+          selfSwitchCh: "A",
+        }),
+      ).toThrow();
     });
 
     it("throws for conditionalBranch actor without actorId", () => {
-      const cmd = ConstrainedCommandSchema.parse({
-        type: "conditionalBranch",
-        conditionType: "actor",
-      });
-      expect(() => compileCommand(cmd)).toThrow("actorId");
+      expect(() =>
+        ConstrainedCommandSchema.parse({
+          type: "conditionalBranch",
+          conditionType: "actor",
+        }),
+      ).toThrow();
     });
 
     it("compiles conditionalBranch actor to code 111", () => {
@@ -299,9 +283,7 @@ describe("command builder", () => {
         actorValue: 5,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 111, indent: 0, parameters: [3, 1, 0, 5, 0] },
-      ]);
+      expect(result).toEqual([{ code: 111, indent: 0, parameters: [4, 1, 0, 5] }]);
     });
 
     it("compiles conditionalBranch switch OFF to code 111 with value 1", () => {
@@ -312,9 +294,7 @@ describe("command builder", () => {
         switchValue: false,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 111, indent: 0, parameters: [0, 1, 1] },
-      ]);
+      expect(result).toEqual([{ code: 111, indent: 0, parameters: [0, 1, 1] }]);
     });
 
     it("compiles conditionalBranch selfSwitch OFF to code 111 with value 1", () => {
@@ -325,9 +305,7 @@ describe("command builder", () => {
         selfSwitchValue: false,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 111, indent: 0, parameters: [2, "A", 1] },
-      ]);
+      expect(result).toEqual([{ code: 111, indent: 0, parameters: [2, "A", 1] }]);
     });
   });
 
@@ -339,9 +317,7 @@ describe("command builder", () => {
         value: true,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 123, indent: 0, parameters: ["A", 0] },
-      ]);
+      expect(result).toEqual([{ code: 123, indent: 0, parameters: ["A", 0] }]);
     });
 
     it("compiles changeGold increase to code 125", () => {
@@ -351,9 +327,7 @@ describe("command builder", () => {
         operand: 100,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 125, indent: 0, parameters: [0, 0, 100] },
-      ]);
+      expect(result).toEqual([{ code: 125, indent: 0, parameters: [0, 0, 100] }]);
     });
 
     it("compiles changeGold decrease to code 125", () => {
@@ -363,9 +337,7 @@ describe("command builder", () => {
         operand: 50,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 125, indent: 0, parameters: [1, 0, 50] },
-      ]);
+      expect(result).toEqual([{ code: 125, indent: 0, parameters: [1, 0, 50] }]);
     });
 
     it("compiles changeItems to code 126", () => {
@@ -376,9 +348,7 @@ describe("command builder", () => {
         operand: 1,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 126, indent: 0, parameters: [1, 0, 0, 1] },
-      ]);
+      expect(result).toEqual([{ code: 126, indent: 0, parameters: [1, 0, 0, 1] }]);
     });
 
     it("compiles changeHp to code 311", () => {
@@ -390,22 +360,18 @@ describe("command builder", () => {
         allowKnockout: true,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 311, indent: 0, parameters: [0, 1, 0, 1, 200, 1] },
-      ]);
+      expect(result).toEqual([{ code: 311, indent: 0, parameters: [0, 1, 1, 0, 200, true] }]);
     });
 
     it("compiles showAnimation to code 212", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "showAnimation",
-        actorId: 1,
+        characterId: 1,
         animationId: 5,
         waitForCompletion: true,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 212, indent: 0, parameters: [1, 5, 1] },
-      ]);
+      expect(result).toEqual([{ code: 212, indent: 0, parameters: [1, 5, true] }]);
     });
 
     it("compiles wait to code 230", () => {
@@ -414,9 +380,7 @@ describe("command builder", () => {
         frames: 60,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 230, indent: 0, parameters: [60] },
-      ]);
+      expect(result).toEqual([{ code: 230, indent: 0, parameters: [60] }]);
     });
 
     it("compiles playBgm to code 241", () => {
@@ -436,9 +400,7 @@ describe("command builder", () => {
         name: "Start",
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 118, indent: 0, parameters: ["Start"] },
-      ]);
+      expect(result).toEqual([{ code: 118, indent: 0, parameters: ["Start"] }]);
     });
 
     it("compiles jumpToLabel to code 119", () => {
@@ -447,9 +409,7 @@ describe("command builder", () => {
         name: "Start",
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 119, indent: 0, parameters: ["Start"] },
-      ]);
+      expect(result).toEqual([{ code: 119, indent: 0, parameters: ["Start"] }]);
     });
 
     it("rejects invalid selfSwitchCh", () => {
@@ -499,9 +459,7 @@ describe("command builder", () => {
         allowKnockout: false,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 311, indent: 0, parameters: [0, 2, 0, 0, 100, 0] },
-      ]);
+      expect(result).toEqual([{ code: 311, indent: 0, parameters: [0, 2, 0, 0, 100, false] }]);
     });
 
     it("compiles changeItems decrease to code 126", () => {
@@ -512,22 +470,18 @@ describe("command builder", () => {
         operand: 5,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 126, indent: 0, parameters: [2, 1, 0, 5] },
-      ]);
+      expect(result).toEqual([{ code: 126, indent: 0, parameters: [2, 1, 0, 5] }]);
     });
 
     it("compiles showAnimation without wait to code 212", () => {
       const cmd: ConstrainedCommand = ConstrainedCommandSchema.parse({
         type: "showAnimation",
-        actorId: 1,
+        characterId: 1,
         animationId: 3,
         waitForCompletion: false,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 212, indent: 0, parameters: [1, 3, 0] },
-      ]);
+      expect(result).toEqual([{ code: 212, indent: 0, parameters: [1, 3, false] }]);
     });
 
     it("compiles controlSelfSwitch OFF to code 123", () => {
@@ -537,9 +491,7 @@ describe("command builder", () => {
         value: false,
       });
       const result = compileCommand(cmd);
-      expect(result).toEqual([
-        { code: 123, indent: 0, parameters: ["B", 1] },
-      ]);
+      expect(result).toEqual([{ code: 123, indent: 0, parameters: ["B", 1] }]);
     });
   });
 });

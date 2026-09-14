@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { join } from "node:path";
-import { loadProject } from "../../src/io/project.js";
+import { buildNormalizedModel } from "../../src/model/normalized.js";
+import { MvAdapter } from "../../src/engine/mv.js";
+import { MzAdapter } from "../../src/engine/mz.js";
+const loadProject = (dir: string) => {
+  const adapter = dir.includes("mz-sample") ? new MzAdapter() : new MvAdapter();
+  return { adapter, model: buildNormalizedModel(dir, adapter) };
+};
 
 const MZ_DIR = join(process.cwd(), "test", "fixtures", "mz-sample-project");
 

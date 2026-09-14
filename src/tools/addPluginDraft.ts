@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { ConflictError } from "../errors.js";
 import type { Project } from "../io/project.js";
 import type { Staging } from "../mutate/staging.js";
+import { PluginName } from "../schema/safety.js";
 
 export const AddPluginDraftInput = z.object({
-  name: z.string().min(1),
+  name: PluginName,
   source: z.string().min(1),
   status: z.boolean().default(true),
   params: z.record(z.string()).default({}),
@@ -25,16 +27,17 @@ export const AddPluginDraftOutput = z.object({
 export function addPluginDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof AddPluginDraftInput>,
+  rawInput: z.infer<typeof AddPluginDraftInput>,
 ) {
+  const input = AddPluginDraftInput.parse(rawInput);
   const existing = project.model.plugins.find((p) => p.name === input.name);
   if (existing) {
-    throw new Error(`Plugin "${input.name}" already exists`);
+    throw new ConflictError(`Plugin "${input.name}" already exists`);
   }
 
   const pendingAdds = staging.list().filter((d) => d.type === "addPlugin" && d.name === input.name);
   if (pendingAdds.length > 0) {
-    throw new Error(`Plugin "${input.name}" is already staged for addition`);
+    throw new ConflictError(`Plugin "${input.name}" is already staged for addition`);
   }
 
   const changeId = staging.addAddPlugin(input.name, input.source, input.status, input.params);

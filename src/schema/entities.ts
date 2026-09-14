@@ -57,6 +57,7 @@ export const SkillSchema = ItemSchema.omit({ itypeId: true, consumable: true, pr
     tpCost: z.number().int(),
     message1: z.string(),
     message2: z.string(),
+    messageType: z.number().int().optional(), // MZ editor field
     requiredWtypeId1: z.number().int(),
     requiredWtypeId2: z.number().int(),
   },
@@ -68,6 +69,7 @@ export const WeaponSchema = z.object({
   iconIndex: z.number().int(),
   description: z.string(),
   wtypeId: z.number().int(),
+  animationId: z.number().int().optional(), // Absent in the legacy fixture
   price: z.number().int(),
   etypeId: z.number().int(),
   params: z.array(z.number().int()).length(8),
@@ -89,6 +91,7 @@ export const ArmorSchema = z.object({
 });
 
 export const StateSchema = z.object({
+  description: z.string().optional(), // Older MV editor exports
   id: z.number().int().positive(),
   name: z.string(),
   iconIndex: z.number().int(),
@@ -101,9 +104,12 @@ export const StateSchema = z.object({
   autoRemovalTiming: z.number().int(),
   minTurns: z.number().int(),
   maxTurns: z.number().int(),
-  removeByDamage: z.number().int(),
+  // Legacy fixtures used numbers here; editor exports use booleans.
+  removeByDamage: z.union([z.boolean(), z.number().int()]),
   chanceByDamage: z.number().int(),
-  removeByWalking: z.number().int(),
+  releaseByDamage: z.boolean().optional(), // Retained by MV and MZ exports
+  messageType: z.number().int().optional(), // MZ editor field
+  removeByWalking: z.union([z.boolean(), z.number().int()]),
   stepsToRemove: z.number().int(),
   message1: z.string(),
   message2: z.string(),
@@ -115,8 +121,8 @@ export const StateSchema = z.object({
 
 export const EnemyActionSchema = z.object({
   conditionType: z.number().int(),
-  conditionParam1: z.number().int(),
-  conditionParam2: z.number().int(),
+  conditionParam1: z.number(),
+  conditionParam2: z.number(),
   rating: z.number().int(),
   skillId: z.number().int(),
 });
@@ -259,7 +265,9 @@ export const MapEventImageSchema = z.object({
 });
 
 export const MoveRouteSchema = z.object({
-  list: z.array(EventCommandSchema),
+  list: z.array(
+    z.object({ code: z.number().int(), parameters: z.array(z.unknown()).optional() }).passthrough(),
+  ),
   repeat: z.boolean(),
   skippable: z.boolean(),
   wait: z.boolean(),
@@ -314,3 +322,6 @@ export type EventCommand = z.infer<typeof EventCommandSchema>;
 export type Damage = z.infer<typeof DamageSchema>;
 export type Effect = z.infer<typeof EffectSchema>;
 export type Trait = z.infer<typeof TraitSchema>;
+
+export type MapEventPage = z.infer<typeof MapEventPageSchema>;
+export type TroopPage = z.infer<typeof TroopPageSchema>;

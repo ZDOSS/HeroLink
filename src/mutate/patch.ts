@@ -1,5 +1,6 @@
 import type fjp from "fast-json-patch";
 import type { EntityType } from "../model/normalized.js";
+import { PluginName, assertSafeKeys, invalid } from "../schema/safety.js";
 import type {
   AddPluginDraft,
   CreateDraft,
@@ -48,7 +49,7 @@ export interface PluginEntry {
   name: string;
   status: boolean;
   description: string;
-  parameters: Record<string, string>;
+  parameters: Record<string, unknown>;
 }
 
 export function entityFile(entityType: EntityType): string {
@@ -91,6 +92,7 @@ export function buildWritePlans(
   const fileOps = new Map<string, fjp.Operation[]>();
 
   for (const draft of drafts) {
+    assertSafeKeys(draft);
     switch (draft.type) {
       case "create": {
         const file = entityFile(draft.entityType);
@@ -154,9 +156,11 @@ function buildCreateOps(draft: CreateDraft, nextIds: Map<EntityType, number>): f
 }
 
 function buildUpdateOps(draft: UpdateDraft): fjp.Operation[] {
+  if ("id" in draft.patch || "list" in draft.patch || "pages" in draft.patch)
+    invalid("Protected entity field; use the command builder");
   const ops: fjp.Operation[] = [];
   for (const [key, value] of Object.entries(draft.patch)) {
-    ops.push({ op: "replace", path: `/${draft.entityId}/${key}`, value });
+    ops.push({ op: "add", path: `/${draft.entityId}/${escapePointer(key)}`, value });
   }
   return ops;
 }
@@ -169,7 +173,25 @@ function buildCreateMapEventOps(draft: CreateMapEventDraft, nextEventId: number)
 function buildUpdateMapEventOps(draft: UpdateMapEventDraft): fjp.Operation[] {
   const ops: fjp.Operation[] = [];
   for (const [key, value] of Object.entries(draft.patch)) {
-    ops.push({ op: "replace", path: `/events/${draft.eventId}/${key}`, value });
+    if (key === "pagePatch") {
+      const page = value as { index: number; fields: Record<string, unknown> };
+      for (const [field, entry] of Object.entries(page.fields)) {
+        if (field === "conditions" || field === "image") {
+          for (const [nested, v] of Object.entries(entry as Record<string, unknown>))
+            ops.push({
+              op: "replace",
+              path: `/events/${draft.eventId}/pages/${page.index}/${field}/${escapePointer(nested)}`,
+              value: v,
+            });
+        } else
+          ops.push({
+            op: "replace",
+            path: `/events/${draft.eventId}/pages/${page.index}/${escapePointer(field)}`,
+            value: entry,
+          });
+      }
+    } else
+      ops.push({ op: "replace", path: `/events/${draft.eventId}/${escapePointer(key)}`, value });
   }
   return ops;
 }
@@ -195,6 +217,9 @@ function buildPluginPlans(drafts: Draft[], currentPlugins: PluginEntry[]): Write
 }
 
 function applySetPluginParams(plugins: PluginEntry[], draft: SetPluginParamsDraft): PluginEntry[] {
+  PluginName.parse(draft.pluginName);
+  if (!plugins.some((p) => p.name === draft.pluginName))
+    invalid(`Plugin ${draft.pluginName} not found`);
   return plugins.map((p) => {
     if (p.name === draft.pluginName) {
       return { ...p, parameters: { ...p.parameters, ...draft.params } };
@@ -204,6 +229,7 @@ function applySetPluginParams(plugins: PluginEntry[], draft: SetPluginParamsDraf
 }
 
 function applyAddPlugin(plugins: PluginEntry[], draft: AddPluginDraft): PluginEntry[] {
+  PluginName.parse(draft.name);
   const existing = plugins.find((p) => p.name === draft.name);
   if (existing) {
     throw new Error(`Plugin "${draft.name}" already exists`);
@@ -217,4 +243,8 @@ function applyAddPlugin(plugins: PluginEntry[], draft: AddPluginDraft): PluginEn
       parameters: draft.params,
     },
   ];
+}
+
+function escapePointer(key: string): string {
+  return key.replace(/~/g, "~0").replace(/\//g, "~1");
 }

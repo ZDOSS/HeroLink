@@ -10,9 +10,13 @@ const Logs = {
       <h2 style="margin:0 0 20px;font-size:18px;font-weight:600;">Logs</h2>
 
       <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
-        ${Object.entries(filterLabels).map(([key, label]) => `
+        ${Object.entries(filterLabels)
+          .map(
+            ([key, label]) => `
           <button class="btn btn-sm log-filter-btn ${this.filter === key ? "btn-primary" : "btn-ghost"}" data-filter="${key}" onclick="Logs.setFilter('${key}')">${label}</button>
-        `).join("")}
+        `,
+          )
+          .join("")}
         <div style="flex:1;"></div>
         <button class="btn btn-sm btn-ghost" onclick="Logs.clear()">Clear</button>
         <button class="btn btn-sm btn-ghost" onclick="Logs.copy()">Copy</button>
@@ -33,12 +37,15 @@ const Logs = {
     if (!container) return;
     const logs = HeroLinkState.get("logs");
     const filtered = this.filter === "all" ? logs : logs.filter((l) => l.level === this.filter);
-    container.innerHTML = filtered.length === 0
-      ? '<div style="padding:12px;color:var(--text-muted);text-align:center;">No logs yet.</div>'
-      : filtered.map((l) => {
-          const time = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : "";
-          return `<div class="log-entry ${l.level}"><span class="time">[${time}]</span> ${this.escapeHtml(l.message)}</div>`;
-        }).join("");
+    container.innerHTML =
+      filtered.length === 0
+        ? '<div style="padding:12px;color:var(--text-muted);text-align:center;">No logs yet.</div>'
+        : filtered
+            .map((l) => {
+              const time = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : "";
+              return `<div class="log-entry ${l.level}"><span class="time">[${time}]</span> ${this.escapeHtml(l.message)}</div>`;
+            })
+            .join("");
     this._scrollToBottom();
   },
 
@@ -103,7 +110,6 @@ const Logs = {
   },
 
   escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return App.escapeHtml(str);
   },
 };

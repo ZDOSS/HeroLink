@@ -24,7 +24,7 @@ const MapsEvents = {
       <div class="card" style="margin-top:16px;">
         <h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">Search Events</h3>
         <div style="display:flex;gap:8px;">
-          <input type="text" id="me-search-query" placeholder="Search event text..." style="flex:1;" onkeyup="if(event.key==='Enter')MapsEvents.searchEvents()">
+          <input type="text" id="me-search-query" aria-label="Search event text" placeholder="Search event text..." style="flex:1;" onkeyup="if(event.key==='Enter')MapsEvents.searchEvents()">
           <button class="btn btn-primary btn-sm" onclick="MapsEvents.searchEvents()">Search</button>
         </div>
         <div id="me-search-results" style="margin-top:12px;font-size:12px;"></div>
@@ -49,14 +49,18 @@ const MapsEvents = {
       el.innerHTML = "No maps found.";
       return;
     }
-    el.innerHTML = maps.map((m, i) => `
-      <div class="table-row"
-           style="cursor:pointer;display:flex;justify-content:space-between;${this._selectedMapId === m.id ? "background:var(--accent-light);" : ""}"
+    el.innerHTML = maps
+      .map(
+        (m, i) => `
+      <button type="button" class="table-row btn btn-ghost"
+           style="width:100%;cursor:pointer;display:flex;justify-content:space-between;${this._selectedMapId === m.id ? "background:var(--accent-light);" : ""}"
            onclick="MapsEvents.selectMap(${m.id})">
         <span>${this.escapeHtml(m.name)}</span>
         <span style="color:var(--text-muted);font-size:11px;">ID ${m.id}</span>
-      </div>
-    `).join("");
+      </button>
+    `,
+      )
+      .join("");
   },
 
   async selectMap(mapId) {
@@ -76,22 +80,26 @@ const MapsEvents = {
       el.innerHTML = "No events on this map.";
       return;
     }
-    el.innerHTML = events.map((e) => `
-      <div class="table-row" style="cursor:pointer;display:flex;justify-content:space-between;"
+    el.innerHTML = events
+      .map(
+        (e) => `
+      <button type="button" class="table-row btn btn-ghost" style="width:100%;cursor:pointer;display:flex;justify-content:space-between;"
            onclick="MapsEvents.showEventDetail(${mapId},${e.id})">
         <div>
           <div style="font-size:13px;">${this.escapeHtml(e.name || "(unnamed)")}</div>
           <div style="font-size:11px;color:var(--text-muted);">ID ${e.id} ${e.x !== undefined ? "· (" + e.x + "," + e.y + ")" : ""}</div>
         </div>
         <span style="font-size:11px;color:var(--text-muted);">${e.pageCount || "?"} pages</span>
-      </div>
-    `).join("");
+      </button>
+    `,
+      )
+      .join("");
   },
 
   showEventDetail(mapId, eventId) {
     const event = (this._events || []).find((ev) => ev.id === eventId);
     Modal.show({
-      title: `Event: ${this.escapeHtml(event?.name || "(unnamed)")}`,
+      title: `Event: ${event?.name || "(unnamed)"}`,
       body: event
         ? `<pre class="code-block" style="max-height:400px;overflow-y:auto;">${this.escapeHtml(JSON.stringify(event, null, 2))}</pre>`
         : "<p>Event not found.</p>",
@@ -112,18 +120,28 @@ const MapsEvents = {
     }
     const matches = result.data?.matches || [];
     if (matches.length === 0) {
-      el.innerHTML = '<div style="padding:12px;color:var(--text-muted);text-align:center;">No results.</div>';
+      el.innerHTML =
+        '<div style="padding:12px;color:var(--text-muted);text-align:center;">No results.</div>';
       return;
     }
-    el.innerHTML = matches.map((m) => `
+    el.innerHTML = matches
+      .map(
+        (m) => `
       <div class="table-row">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:2px;">${this.escapeHtml(m.location)}</div>
         <div style="font-size:12px;">${this.escapeHtml(m.snippet)}</div>
       </div>
-    `).join("");
+    `,
+      )
+      .join("");
   },
 
   escapeHtml(str) {
-    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   },
 };

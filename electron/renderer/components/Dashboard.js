@@ -1,7 +1,6 @@
 const Dashboard = {
   escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return App.escapeHtml(str);
   },
 
   async render() {
@@ -25,7 +24,7 @@ const Dashboard = {
     if (summary && summary.success) {
       const d = summary.data;
       const entityTypes = d.counts ? Object.entries(d.counts).filter(([k]) => k !== "maps") : [];
-      const mapCount = d.mapCount || "?";
+      const mapCount = d.mapCount ?? "?";
 
       summaryHtml = `
         <div style="margin-bottom:24px;">
@@ -34,7 +33,7 @@ const Dashboard = {
               <div>
                 <div style="font-size:16px;font-weight:600;">${this.escapeHtml(d.gameTitle || "Unknown Project")}</div>
                 <div style="font-size:12px;color:var(--text-muted);">
-                  Engine: <span class="status-pill status-running" style="font-size:11px;">${this.escapeHtml(d.engine || "mv")}</span>
+                  Engine: <span class="status-pill status-running" style="font-size:11px;">${this.escapeHtml(d.engine || "Unknown")}</span>
                 </div>
               </div>
               <div style="text-align:right;">
@@ -47,12 +46,16 @@ const Dashboard = {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;">
-            ${entityTypes.map(([type, count]) => `
+            ${entityTypes
+              .map(
+                ([type, count]) => `
               <div class="card count-card" style="cursor:default;">
                 <div class="count">${count}</div>
                 <div class="label">${type}s</div>
               </div>
-            `).join("")}
+            `,
+              )
+              .join("")}
             <div class="card count-card">
               <div class="count">${mapCount}</div>
               <div class="label">Maps</div>

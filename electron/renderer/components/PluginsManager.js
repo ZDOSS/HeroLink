@@ -34,7 +34,9 @@ const PluginsManager = {
       el.innerHTML = '<div style="padding:12px;text-align:center;">No plugins installed.</div>';
       return;
     }
-    el.innerHTML = plugins.map((p) => `
+    el.innerHTML = plugins
+      .map(
+        (p) => `
       <div class="table-row" style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-size:13px;">${this.escapeHtml(p.name)}</div>
@@ -42,12 +44,14 @@ const PluginsManager = {
         </div>
         <button class="btn btn-sm btn-ghost pm-edit-btn" data-plugin-name="${this.escapeHtml(p.name)}">Edit Params</button>
       </div>
-    `).join("");
+    `,
+      )
+      .join("");
   },
 
   showEditParams(pluginName) {
     Modal.show({
-      title: `Edit Params: ${this.escapeHtml(pluginName)}`,
+      title: `Edit Params: ${pluginName}`,
       body: `
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div><label>Parameter Key</label><input type="text" id="pm-key" placeholder="Key"></div>
@@ -62,9 +66,19 @@ const PluginsManager = {
         const result = await BridgeAPI.setPluginParamDraft(pluginName, { [key]: val });
         if (result.success) {
           await App.refreshPendingCount();
-          Modal.show({ title: "Draft Created", body: `<p>Parameter draft for "${this.escapeHtml(pluginName)}" added to Pending Changes.</p>`, confirmText: "OK", cancelText: false });
+          Modal.show({
+            title: "Draft Created",
+            body: `<p>Parameter draft for "${this.escapeHtml(pluginName)}" added to Pending Changes.</p>`,
+            confirmText: "OK",
+            cancelText: false,
+          });
         } else {
-          Modal.show({ title: "Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK", cancelText: false });
+          Modal.show({
+            title: "Error",
+            body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
+            confirmText: "OK",
+            cancelText: false,
+          });
         }
       },
     });
@@ -76,26 +90,42 @@ const PluginsManager = {
       body: `
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div><label>Plugin Name</label><input type="text" id="pm-add-name" placeholder="MyPlugin"></div>
-          <div><label>Source Path</label><input type="text" id="pm-add-source" placeholder="js/plugins/MyPlugin.js"></div>
+          <div><label for="pm-add-source">Plugin source code</label><textarea id="pm-add-source" rows="10" spellcheck="false" placeholder="Paste the JavaScript source code here"></textarea></div>
         </div>
       `,
       confirmText: "Add as Draft",
       onConfirm: async () => {
         const name = document.getElementById("pm-add-name")?.value || "";
         const source = document.getElementById("pm-add-source")?.value || "";
-        if (!name) return;
+        if (!name || !source.trim())
+          throw new Error("Enter a plugin name and JavaScript source code.");
         const result = await BridgeAPI.addPluginDraft(name, source);
         if (result.success) {
           await App.refreshPendingCount();
-          Modal.show({ title: "Draft Created", body: `<p>Plugin draft for "${this.escapeHtml(name)}" added to Pending Changes.</p>`, confirmText: "OK", cancelText: false });
+          Modal.show({
+            title: "Draft Created",
+            body: `<p>Plugin draft for "${this.escapeHtml(name)}" added to Pending Changes.</p>`,
+            confirmText: "OK",
+            cancelText: false,
+          });
         } else {
-          Modal.show({ title: "Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK", cancelText: false });
+          Modal.show({
+            title: "Error",
+            body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
+            confirmText: "OK",
+            cancelText: false,
+          });
         }
       },
     });
   },
 
   escapeHtml(str) {
-    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   },
 };

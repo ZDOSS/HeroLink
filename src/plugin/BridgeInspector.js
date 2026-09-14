@@ -102,11 +102,27 @@
   }
 
   function getChannelPath(filename) {
-    if (!path) return null;
+    if (!path || !fs) return null;
     var mainModule = process.mainModule || require.main;
-    if (!mainModule) return null;
-    var projectRoot = path.dirname(mainModule.filename);
-    return path.join(projectRoot, channelDir, filename);
+    if (!mainModule || !mainModule.filename) return null;
+    try {
+      var projectRoot = fs.realpathSync(path.dirname(mainModule.filename));
+      if (!/^\.bridge(?:\/[A-Za-z0-9_-]+)*$/.test(channelDir)) return null;
+      if (channelDir.replace(/\\/g, "/").split("/").indexOf("..") >= 0 || path.isAbsolute(channelDir)) return null;
+      var target = path.resolve(projectRoot, channelDir, filename);
+      var relative = path.relative(projectRoot, target);
+      if (relative === ".." || relative.indexOf(".." + path.sep) === 0 || path.isAbsolute(relative)) return null;
+      var ancestor = target;
+      while (!fs.existsSync(ancestor)) {
+        try { if (fs.lstatSync(ancestor).isSymbolicLink()) return null; } catch (e) { if (e.code !== "ENOENT") return null; }
+        ancestor = path.dirname(ancestor);
+      }
+      var canonicalAncestor = fs.realpathSync(ancestor);
+      if (path.relative(canonicalAncestor, ancestor) !== "") return null;
+      relative = path.relative(projectRoot, canonicalAncestor);
+      if (relative === ".." || relative.indexOf(".." + path.sep) === 0 || path.isAbsolute(relative)) return null;
+      return target;
+    } catch (e) { return null; }
   }
 
   function acquireResponseLock() {
@@ -154,17 +170,31 @@
 
   function writeJson(filename, data) {
     if (!fs || !path) return false;
+    var temporary = null;
+    var descriptor = null;
     try {
       var filepath = getChannelPath(filename);
+      if (!filepath) return false;
       var dir = path.dirname(filepath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(filepath, JSON.stringify(data, null, 2), "utf-8");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      temporary = getChannelPath(filename + "." + process.pid + "." + Date.now() + "." + Math.random().toString(16).slice(2) + ".tmp");
+      if (!temporary) return false;
+      descriptor = fs.openSync(temporary, "wx");
+      fs.writeFileSync(descriptor, JSON.stringify(data, null, 2), "utf8");
+      fs.fsyncSync(descriptor);
+      fs.closeSync(descriptor);
+      descriptor = null;
+      filepath = getChannelPath(filename);
+      if (!filepath) return false;
+      fs.renameSync(temporary, filepath);
+      temporary = null;
       return true;
     } catch (e) {
       console.error("BridgeInspector: Failed to write " + filename, e);
       return false;
+    } finally {
+      if (descriptor !== null) fs.closeSync(descriptor);
+      if (temporary && fs.existsSync(temporary)) fs.unlinkSync(temporary);
     }
   }
 
@@ -172,12 +202,12 @@
     if (!fs || !path) return null;
     try {
       var filepath = getChannelPath(filename);
+      if (!filepath) return null;
       if (!fs.existsSync(filepath)) return null;
       var content = fs.readFileSync(filepath, "utf-8");
       return JSON.parse(content);
     } catch (e) {
-      console.error("BridgeInspector: Failed to read " + filename, e);
-      return null;
+      throw new Error("BridgeInspector: Invalid channel file " + filename + ": " + e.message);
     }
   }
 
@@ -256,72 +286,60 @@
 
   function processCommands() {
     var haveCmdLock = acquireCommandLock();
-    if (!haveCmdLock) {
-      // Lock contended; defer to next poll cycle (1-2 frames).
-      return;
-    }
-    var commands = readJson("commands.json");
-    if (!commands || !Array.isArray(commands)) {
-      releaseCommandLock();
-      return;
-    }
-
-    var haveLock = acquireResponseLock();
-    if (!haveLock) {
-      // Response file contended — release command lock and defer.
-      releaseCommandLock();
-      return;
-    }
-
+    if (!haveCmdLock) return;
     try {
-      var existingResponses = readJson("responses.json");
-      if (!existingResponses || !Array.isArray(existingResponses)) {
-        existingResponses = [];
-      }
-
-      var newResponses = [];
-
-      for (var i = 0; i < commands.length; i++) {
-        var cmd = commands[i];
-        if (!cmd || !cmd.command) continue;
-
-        var response = executeCommand(cmd);
-        newResponses.push({
-          id: cmd.id || null,
-          command: cmd.command,
-          success: response.success,
-          result: response.result,
-          error: response.error,
-        });
-      }
-
-      if (newResponses.length > 0) {
-        var allResponses = existingResponses.concat(newResponses);
-        var wrote = writeJson("responses.json", allResponses);
-        if (!wrote) {
-          console.error("BridgeInspector: Failed to write responses; deferring to next cycle.");
-          return; // finally{} releases both locks; commands are kept for retry
+      var haveResponseLock = acquireResponseLock();
+      if (!haveResponseLock) return;
+      try {
+        var commands = readJson("commands.json");
+        if (!Array.isArray(commands)) return;
+        var responses = readJson("responses.json");
+        if (responses === null) responses = [];
+        if (!Array.isArray(responses)) return;
+        var receipts = readJson("executed.json");
+        if (receipts === null) receipts = {};
+        if (typeof receipts !== "object" || Array.isArray(receipts)) return;
+        for (var oldId in receipts) if (Object.prototype.hasOwnProperty.call(receipts, oldId) && receipts[oldId].expiresAt < Date.now()) delete receipts[oldId];
+        for (var i = 0; i < commands.length; i++) {
+          var cmd = commands[i];
+          if (!cmd || typeof cmd.id !== "string" || !/^[a-f0-9-]{36}$/.test(cmd.id) || typeof cmd.command !== "string") continue;
+          var cancellation = getChannelPath(cmd.id + ".cancelled");
+          if (!cancellation) return;
+          if (typeof cmd.expiresAt !== "number" || cmd.expiresAt <= Date.now() || fs.existsSync(cancellation)) continue;
+          if (!Object.prototype.hasOwnProperty.call(receipts, cmd.id)) {
+            // Persist the claim BEFORE previewing. After a crash an uncertain
+            // execution is reported as such; it is never replayed automatically.
+            receipts[cmd.id] = { expiresAt: cmd.expiresAt, response: { id: cmd.id, command: cmd.command, success: false, result: null, error: "Execution interrupted; preview may already have been shown" } };
+            var claimed = writeJson("executed.json", receipts);
+            if (!claimed) return;
+            var result = executeCommand(cmd);
+            receipts[cmd.id].response = { id: cmd.id, command: cmd.command, success: result.success, result: result.result, error: result.error };
+            var recorded = writeJson("executed.json", receipts);
+            if (!recorded) return;
+          }
+          if (!responses.some(function(r) { return r.id === cmd.id; })) responses.push(receipts[cmd.id].response);
         }
-      }
-
-      // Clear commands (command lock from top of function still held)
-      if (commands.length > 0) {
+        var wroteResponses = writeJson("responses.json", responses);
+        if (!wroteResponses) return;
         var cleared = writeJson("commands.json", []);
-        if (!cleared) {
-          console.error("BridgeInspector: Failed to clear commands.json; commands may be replayed.");
+        if (!cleared) return;
+        // Tombstones are unique per command and no longer needed after removal.
+        for (var j = 0; j < commands.length; j++) {
+          if (!commands[j] || !/^[a-f0-9-]{36}$/.test(commands[j].id)) continue;
+          var tombstone = getChannelPath(commands[j].id + ".cancelled");
+          if (!tombstone) return;
+          if (fs.existsSync(tombstone)) fs.unlinkSync(tombstone);
         }
-      }
-    } finally {
-      releaseCommandLock();
-      releaseResponseLock();
-    }
+      } finally { releaseResponseLock(); }
+    } catch (e) { console.error("BridgeInspector: Channel processing failed", e); }
+    finally { releaseCommandLock(); }
   }
 
   function executeCommand(cmd) {
     var commandName = cmd.command.toUpperCase();
 
     // Validate against allowlist
-    if (!ALLOWED_COMMANDS[commandName]) {
+    if (!Object.prototype.hasOwnProperty.call(ALLOWED_COMMANDS, commandName)) {
       return {
         success: false,
         result: null,
@@ -382,7 +400,7 @@
     }
 
     var itemId = Number(args.itemId);
-    var item = $dataItems[itemId];
+    var item = Number.isInteger(itemId) && itemId > 0 && $dataItems ? $dataItems[itemId] : null;
 
     if (!item) {
       return {
@@ -419,7 +437,7 @@
     }
 
     var skillId = Number(args.skillId);
-    var skill = $dataSkills[skillId];
+    var skill = Number.isInteger(skillId) && skillId > 0 && $dataSkills ? $dataSkills[skillId] : null;
 
     if (!skill) {
       return {
@@ -468,7 +486,7 @@
     if (command === "BridgeInspector") {
       var subCommand = args[0] ? args[0].toUpperCase() : "";
 
-      if (!ALLOWED_COMMANDS[subCommand]) {
+      if (!Object.prototype.hasOwnProperty.call(ALLOWED_COMMANDS, subCommand)) {
         console.warn("BridgeInspector: Command not allowlisted: " + subCommand);
         return;
       }

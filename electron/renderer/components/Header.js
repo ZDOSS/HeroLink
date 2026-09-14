@@ -36,9 +36,14 @@ const Header = {
       result = await window.heroLinkAPI.startServer();
     }
     if (result && !result.ok && result.error) {
-      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+      Modal.show({
+        title: "Server Error",
+        body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
+        confirmText: "OK",
+      });
     } else if (result && result.ok) {
       await App.refreshProjectSummary();
+      await App.refreshPendingCount();
       if (HeroLinkState.get("currentView") !== "logs") {
         await App.renderView(HeroLinkState.get("currentView"));
       }
@@ -48,9 +53,14 @@ const Header = {
   async handleRestart() {
     const result = await window.heroLinkAPI.restartServer();
     if (result && !result.ok && result.error) {
-      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+      Modal.show({
+        title: "Server Error",
+        body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
+        confirmText: "OK",
+      });
     } else if (result && result.ok) {
       await App.refreshProjectSummary();
+      await App.refreshPendingCount();
       if (HeroLinkState.get("currentView") !== "logs") {
         await App.renderView(HeroLinkState.get("currentView"));
       }
@@ -58,8 +68,7 @@ const Header = {
   },
 
   escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return App.escapeHtml(str);
   },
 
   update() {

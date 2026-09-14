@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { Project } from "../io/project.js";
+import { checkStaleness } from "../model/hash.js";
+import { Backup } from "../mutate/backup.js";
 
 export const GetProjectStatusInput = z.object({});
 
@@ -19,8 +21,8 @@ export function getProjectStatus(project: Project) {
     engine: project.adapter.id,
     gameTitle: project.model.system.gameTitle,
     versionId: project.model.system.versionId,
-    dirty: false,
+    dirty: checkStaleness(project.model.fileSnapshots).length > 0,
     pendingChanges: project.staging.list().length,
-    lastTransactionId: null,
+    lastTransactionId: new Backup(project.projectDir).getLastTransaction()?.id ?? null,
   };
 }

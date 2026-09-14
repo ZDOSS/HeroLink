@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NotFoundError } from "../errors.js";
 import type { Project } from "../io/project.js";
 import type { EntityType } from "../model/normalized.js";
 
@@ -42,7 +43,7 @@ function parseNote(note: string): Record<string, unknown> {
 export function getEntity(project: Project, input: z.infer<typeof GetEntityInput>) {
   const entity = project.model.getEntity(input.type as EntityType, input.id);
   if (!entity) {
-    throw new Error(`${input.type} with id ${input.id} not found`);
+    throw new NotFoundError(`${input.type} with id ${input.id} not found`);
   }
   const note = (entity.note as string) ?? "";
   return {
