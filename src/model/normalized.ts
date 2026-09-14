@@ -1,10 +1,12 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { EngineAdapter } from "../engine/adapter.js";
 import { IoError } from "../errors.js";
+import { resolveProjectPathSafe } from "../io/paths.js";
 import type { PluginEntry } from "../io/pluginsJs.js";
+import { parsePluginsJs } from "../io/pluginsJs.js";
 import type { FileSnapshot } from "./hash.js";
-import { snapshotFile } from "./hash.js";
+import { hashContent, snapshotFile } from "./hash.js";
 
 export type EntityType =
   | "Actor"
@@ -79,6 +81,7 @@ export class NormalizedModel {
   system!: SystemData;
   plugins: PluginEntry[] = [];
   readonly fileSnapshots = new Map<string, FileSnapshot>();
+  readonly documents = new Map<string, unknown>();
   readonly referenceGraph = new Map<string, Set<string>>();
 
   constructor(
@@ -142,144 +145,105 @@ const FILE_TO_ENTITY: Record<string, EntityType> = {
   "CommonEvents.json": "CommonEvent",
 };
 
-export function buildNormalizedModel(projectDir: string, adapter: EngineAdapter): NormalizedModel {
+// Raw documents are retained so validation sees array indices and duplicate IDs.
+export function modelFromDocuments(
+  projectDir: string,
+  adapter: EngineAdapter,
+  documents: Map<string, unknown>,
+  plugins: PluginEntry[],
+): NormalizedModel {
   const model = new NormalizedModel(projectDir, adapter);
+  for (const [file, data] of documents) {
+    model.documents.set(file, data);
+    if (file === "System.json") model.system = data as SystemData;
+    else if (file === "MapInfos.json" && Array.isArray(data)) {
+      for (const entry of data) if (entry) model.mapInfos.set(entry.id, entry);
+    } else if (/^Map\d+\.json$/.test(file))
+      model.maps.set(Number(file.slice(3, -5)), data as MapData);
+    else if (FILE_TO_ENTITY[file] && Array.isArray(data)) {
+      for (const entry of data)
+        if (entry) model.entities.get(FILE_TO_ENTITY[file])?.set(entry.id, entry);
+    }
+  }
+  model.plugins = plugins;
+  return model;
+}
 
-  for (const file of adapter.dataFiles()) {
-    const filePath = join(projectDir, "data", file);
-
-    model.fileSnapshots.set(filePath, snapshotFile(filePath));
-
+export function buildNormalizedModel(projectDir: string, adapter: EngineAdapter): NormalizedModel {
+  const snapshots = new Map<string, FileSnapshot>();
+  function read(rel: string): string {
+    const file = resolveProjectPathSafe(projectDir, rel);
     try {
-      const content = readFileSync(filePath, "utf-8");
-      const data = JSON.parse(content);
-
-      if (file === "System.json") {
-        model.system = data as SystemData;
-      } else if (file === "MapInfos.json") {
-        for (let i = 1; i < data.length; i++) {
-          if (data[i]) {
-            model.mapInfos.set(data[i].id, data[i] as MapInfo);
-          }
-        }
-      } else if (Array.isArray(data)) {
-        const entity = FILE_TO_ENTITY[file];
-        if (entity) {
-          const entityMap = model.entities.get(entity);
-          if (entityMap) {
-            for (let i = 1; i < data.length; i++) {
-              if (data[i]) {
-                entityMap.set(data[i].id, data[i] as Entity);
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      throw new IoError(filePath, err);
+      const content = readFileSync(file, "utf8");
+      snapshots.set(file, { hash: hashContent(content), mtime: statSync(file).mtimeMs });
+      return content;
+    } catch (error) {
+      throw new IoError(file, error);
     }
   }
-
-  const mapInfosFile = join(projectDir, "data", "MapInfos.json");
-  try {
-    const content = readFileSync(mapInfosFile, "utf-8");
-    const mapInfos = JSON.parse(content);
-    for (let i = 1; i < mapInfos.length; i++) {
-      if (mapInfos[i]) {
-        const mapFile = join(projectDir, "data", `Map${String(i).padStart(3, "0")}.json`);
-        model.fileSnapshots.set(mapFile, snapshotFile(mapFile));
-        try {
-          const mapContent = readFileSync(mapFile, "utf-8");
-          const mapData = JSON.parse(mapContent) as MapData;
-          model.maps.set(i, mapData);
-        } catch {
-          // Map file might not exist
-        }
+  const model = loadModelFromText(projectDir, adapter, read);
+  const pluginDir = resolveProjectPathSafe(projectDir, "js/plugins");
+  if (existsSync(pluginDir))
+    for (const name of readdirSync(pluginDir)) {
+      if (name.endsWith(".js")) {
+        const file = resolveProjectPathSafe(projectDir, join("js/plugins", name));
+        snapshots.set(file, snapshotFile(file));
       }
     }
-  } catch {
-    // MapInfos might not have entries
+  for (const plugin of model.plugins) {
+    if (plugin.status) {
+      const file = resolveProjectPathSafe(projectDir, join("js/plugins", `${plugin.name}.js`));
+      if (!existsSync(file)) throw new IoError(file, "Referenced enabled plugin source is missing");
+    }
   }
-
-  model.plugins = adapter.pluginConfig.read(projectDir);
-  const pluginsFile = join(projectDir, "js", "plugins.js");
-  model.fileSnapshots.set(pluginsFile, snapshotFile(pluginsFile));
-
+  for (const entry of snapshots) model.fileSnapshots.set(...entry);
   return model;
 }
 
 export function reloadModel(model: NormalizedModel): void {
-  const projectDir = model.projectDir;
-  const adapter = model.adapter;
-
-  // Clear all entity maps
-  for (const type of model.getEntityTypes()) {
-    model.entities.get(type)?.clear();
+  // Build first, then swap every collection. Failed reads leave the session intact.
+  // Apply/rollback call this before returning, so subsequent allocations see fresh IDs.
+  const replacement = buildNormalizedModel(model.projectDir, model.adapter);
+  for (const key of [
+    "entities",
+    "mapInfos",
+    "maps",
+    "documents",
+    "fileSnapshots",
+    "referenceGraph",
+  ] as const) {
+    const target = model[key] as Map<unknown, unknown>;
+    target.clear();
+    for (const [k, v] of replacement[key]) target.set(k, v);
   }
-  model.mapInfos.clear();
-  model.maps.clear();
+  model.system = replacement.system;
+  model.plugins = replacement.plugins;
+}
 
-  // Re-read all data files
-  for (const file of adapter.dataFiles()) {
-    const filePath = join(projectDir, "data", file);
-
-    // Update snapshot
-    model.fileSnapshots.set(filePath, snapshotFile(filePath));
-
+// Central parser for disk reads and transaction recovery's captured byte view.
+export function loadModelFromText(
+  projectDir: string,
+  adapter: EngineAdapter,
+  read: (relative: string) => string,
+): NormalizedModel {
+  const documents = new Map<string, unknown>();
+  function readJson(file: string): unknown {
     try {
-      const content = readFileSync(filePath, "utf-8");
-      const data = JSON.parse(content);
-
-      if (file === "System.json") {
-        model.system = data as SystemData;
-      } else if (file === "MapInfos.json") {
-        for (let i = 1; i < data.length; i++) {
-          if (data[i]) {
-            model.mapInfos.set(data[i].id, data[i] as MapInfo);
-          }
-        }
-      } else if (Array.isArray(data)) {
-        const entity = FILE_TO_ENTITY[file];
-        if (entity) {
-          const entityMap = model.entities.get(entity);
-          if (entityMap) {
-            for (let i = 1; i < data.length; i++) {
-              if (data[i]) {
-                entityMap.set(data[i].id, data[i] as Entity);
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      throw new IoError(filePath, err);
+      return JSON.parse(read(`data/${file}`));
+    } catch (error) {
+      if (error instanceof IoError) throw error;
+      throw new IoError(file, error);
     }
   }
-
-  // Re-read maps
-  const mapInfosFile = join(projectDir, "data", "MapInfos.json");
-  try {
-    const content = readFileSync(mapInfosFile, "utf-8");
-    const mapInfos = JSON.parse(content);
-    for (let i = 1; i < mapInfos.length; i++) {
-      if (mapInfos[i]) {
-        const mapFile = join(projectDir, "data", `Map${String(i).padStart(3, "0")}.json`);
-        model.fileSnapshots.set(mapFile, snapshotFile(mapFile));
-        try {
-          const mapContent = readFileSync(mapFile, "utf-8");
-          const mapData = JSON.parse(mapContent) as MapData;
-          model.maps.set(i, mapData);
-        } catch {
-          // Map file might not exist
-        }
-      }
+  for (const file of adapter.dataFiles()) documents.set(file, readJson(file));
+  const mapInfos = documents.get("MapInfos.json");
+  if (!Array.isArray(mapInfos)) throw new IoError("MapInfos.json", "Expected an indexed array");
+  for (let i = 1; i < mapInfos.length; i++) {
+    if (mapInfos[i]) {
+      const name = `Map${String(i).padStart(3, "0")}.json`;
+      documents.set(name, readJson(name));
     }
-  } catch {
-    // MapInfos might not have entries
   }
-
-  // Re-read plugins
-  model.plugins = adapter.pluginConfig.read(projectDir);
-  const pluginsFile = join(projectDir, "js", "plugins.js");
-  model.fileSnapshots.set(pluginsFile, snapshotFile(pluginsFile));
+  const plugins = parsePluginsJs(read("js/plugins.js"));
+  return modelFromDocuments(projectDir, adapter, documents, plugins);
 }

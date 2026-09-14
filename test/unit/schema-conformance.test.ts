@@ -1,3 +1,4 @@
+import { isolatedFixture } from "../helpers/isolatedFixture.js";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,7 +17,7 @@ import {
   MapEventSchema,
 } from "../../src/schema/entities.js";
 
-const SAMPLE_DIR = join(process.cwd(), "test", "fixtures", "sample-project");
+const SAMPLE_DIR = isolatedFixture("sample-project");
 
 function loadArray(file: string): unknown[] {
   const content = readFileSync(join(SAMPLE_DIR, "data", file), "utf-8");

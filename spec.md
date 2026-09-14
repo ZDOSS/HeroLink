@@ -346,7 +346,7 @@ Implement `MvAdapter` only. Do not implement `MzAdapter` in v1 — just keep the
 | Atomic write | `write-file-atomic` ^5 | temp + rename. |
 | Logging | `pino` ^9 | **stderr only** (§12). |
 | CLI | `commander` ^12 | the v1 read CLI and dev utilities. |
-| Tests | `vitest` ^2, `@vitest/coverage-v8` | unit + integration + coverage. |
+| Tests | `vitest` ^4, `@vitest/coverage-v8` | unit + integration + coverage. |
 | Property tests | `fast-check` ^3 | round-trip + apply/rollback invariants (§14). |
 | Lint/format | `@biomejs/biome` ^1 | single binary; or ESLint+Prettier if preferred. |
 
@@ -441,13 +441,13 @@ Conventions for **every** tool:
 **Propose** (stage only; return preview + per-draft validation; **no write**)
 | Tool | Ver | Input | Output |
 |---|---|---|---|
-| `create_item_draft` | v3 | `{fields: Partial<Item>}` | `{changeId, preview, validation}` |
-| `create_skill_draft` | v3 | `{fields: Partial<Skill>}` | `{changeId, preview, validation}` |
+| `create_item_draft` | v3 | `{fields: Omit<Item,"id">}` | `{changeId, preview, validation}` |
+| `create_skill_draft` | v3 | `{fields: Omit<Skill,"id">}` | `{changeId, preview, validation}` |
 | `create_entity_draft` | v3 | `{type, fields}` | `{changeId, preview, validation}` (generic; covers weapon/armor/state/enemy/etc.) |
 | `update_entity_draft` | v3 | `{type, id, patch}` | `{changeId, preview, validation}` |
 | `create_common_event_draft` | v4 | `{name, trigger, switchId?, commands:[ConstrainedCommand]}` | `{changeId, preview, validation}` (§5.4 builder) |
 | `create_map_event_draft` | v4 | `{mapId, event:{name,x,y,pages:[ConstrainedPage]}}` | `{changeId, preview, validation}` |
-| `update_map_event_draft` | v4 | `{mapId, eventId, patch}` | `{changeId, preview, validation}` |
+| `update_map_event_draft` | v4 | `{mapId, eventId, name?, x?, y?, pageIndex?, page?, note?}` | `{changeId, preview, validation}` |
 | `set_plugin_param_draft` | v4 | `{pluginName, params:Record<string,string>}` | `{changeId, preview, validation}` |
 | `add_plugin_draft` | v4 | `{name, source, status?, params?}` | `{changeId, preview, validation}` |
 
@@ -455,10 +455,10 @@ Conventions for **every** tool:
 | Tool | Input | Output | Tag |
 |---|---|---|---|
 | `list_pending_changes` | `{}` | `{changes:[{changeId,type,summary}]}` | read |
-| `diff_pending_changes` | `{}` | `{patches:[{file, ops:[JsonPatchOp]}], humanSummary, aggregateValidation}` | read |
+| `diff_pending_changes` | `{}` | `{patches:[jsonPatch|pluginConfig|pluginFile], files:[{file,before,after}], humanSummary, validation, revision}` | read |
 | `discard_pending_changes` | `{changeIds?}` | `{remaining}` | admin |
 | `validate_project_refs` | `{includePending?}` | `{ok, issues:[{severity,location,message,refKind}]}` | read |
-| `apply_patch` | `{confirm:true}` | `{transactionId, filesWritten, backupDir}` | **apply** |
+| `apply_patch` | `{confirm:true, expectedRevision}` | `{transactionId, filesWritten, backupDir}` | **apply** |
 | `rollback_last_patch` | `{}` | `{restoredTransactionId, filesRestored}` | **apply** |
 | `list_backups` | `{}` | `{transactions:[{id,timestamp,files}]}` | read |
 
@@ -649,7 +649,7 @@ create_skill_draft {name:"Firaga", stypeId:1, mpCost:24, damage:{type:1,elementI
                                         → {changeId:"c2", validation:{ok:true, warnings:["formula uses only allowed identifiers"]}}
 diff_pending_changes                    → {patches:[{file:"data/Items.json",ops:[{op:"add",path:"/34",value:{...}}]}, ...], humanSummary:"+1 item, +1 skill"}
 validate_project_refs {includePending:true} → {ok:true, issues:[]}
-apply_patch {confirm:true}              → {transactionId:"t-2026...", filesWritten:["data/Items.json","data/Skills.json"], backupDir:".bridge/backups/t-2026..."}
+apply_patch {confirm:true, expectedRevision:"reviewed revision"}              → {transactionId:"t-2026...", filesWritten:["data/Items.json","data/Skills.json"], backupDir:".bridge/backups/t-2026..."}
 # user dislikes it
 rollback_last_patch                     → {restoredTransactionId:"t-2026...", filesRestored:2}
 ```
@@ -672,3 +672,7 @@ export async function withTempProject(
 
 ---
 *End of spec v0.1. Update the §18 log and bump the version as decisions land.*
+
+## Audit repair compatibility (September 2026)
+
+The current validated mutation contract and recovery rules are documented in [docs/audit-fixes.md](docs/audit-fixes.md). Public apply requires the reviewed revision, creation requires complete fields, and stored recovery is validated before any restoration. The interpreter and exported engine fixtures supersede incorrect generated schema assumptions.

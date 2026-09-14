@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { Project } from "../io/project.js";
 import type { Staging } from "../mutate/staging.js";
 import { SkillSchema } from "../schema/entities.js";
+import { validateEntityFields } from "../schema/safety.js";
 
 export const CreateSkillDraftInput = z.object({
-  fields: SkillSchema.partial().omit({ id: true }),
+  fields: SkillSchema.omit({ id: true }).strict(),
 });
 
 export const CreateSkillDraftOutput = z.object({
@@ -22,8 +23,10 @@ export const CreateSkillDraftOutput = z.object({
 export function createSkillDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof CreateSkillDraftInput>,
+  rawInput: z.infer<typeof CreateSkillDraftInput>,
 ) {
+  const input = CreateSkillDraftInput.parse(rawInput);
+  validateEntityFields("Skill", input.fields, false, true);
   const changeId = staging.addCreate("Skill", input.fields);
 
   const entities = project.model.listEntities("Skill");

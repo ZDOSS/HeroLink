@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { NotFoundError } from "../errors.js";
 import type { Project } from "../io/project.js";
 import type { EntityType } from "../model/normalized.js";
 import type { Staging } from "../mutate/staging.js";
+import { validateEntityFields } from "../schema/safety.js";
 
 export const UpdateEntityDraftInput = z.object({
   type: z.enum([
@@ -36,11 +38,13 @@ export const UpdateEntityDraftOutput = z.object({
 export function updateEntityDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof UpdateEntityDraftInput>,
+  rawInput: z.infer<typeof UpdateEntityDraftInput>,
 ) {
+  const input = UpdateEntityDraftInput.parse(rawInput);
+  validateEntityFields(input.type, input.patch, true, true);
   const entity = project.model.getEntity(input.type as EntityType, input.id);
   if (!entity) {
-    throw new Error(`${input.type} with id ${input.id} not found`);
+    throw new NotFoundError(`${input.type} with id ${input.id} not found`);
   }
 
   const changeId = staging.addUpdate(input.type as EntityType, input.id, input.patch);

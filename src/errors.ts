@@ -1,4 +1,19 @@
-import type { ZodIssue } from "zod";
+import { ZodError, type ZodIssue } from "zod";
+
+export function errorDetails(error: unknown): { code: string; error: string; issues?: unknown[] } {
+  if (error instanceof ValidationError || error instanceof ZodError)
+    return {
+      code: "ValidationError",
+      error: error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+      issues: error.issues,
+    };
+  if (error instanceof RefIntegrityError)
+    return { code: error.name, error: error.message, issues: error.issues };
+  return {
+    code: error instanceof Error ? error.name : "InternalError",
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
 
 export class ProjectNotFoundError extends Error {
   readonly projectDir: string;
@@ -67,5 +82,12 @@ export class IoError extends Error {
     super(`I/O error on ${filePath}: ${cause instanceof Error ? cause.message : String(cause)}`);
     this.name = "IoError";
     this.filePath = filePath;
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotFoundError";
   }
 }

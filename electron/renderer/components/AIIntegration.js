@@ -6,7 +6,9 @@ const AIIntegration = {
     return `
       <h2 style="margin:0 0 20px;font-size:18px;font-weight:600;">🧠 AI Integration</h2>
 
-      ${!config.projectPath ? `
+      ${
+        !config.projectPath
+          ? `
         <div class="card" style="margin-bottom:16px;border-left:3px solid var(--warning);">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:18px;">⚠️</span>
@@ -17,7 +19,9 @@ const AIIntegration = {
             <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="Sidebar.navigate('settings')">Open Settings</button>
           </div>
         </div>
-      ` : ""}
+      `
+          : ""
+      }
 
       <!-- Section 1: What is this? -->
       <div class="card" style="margin-bottom:16px;">
@@ -142,7 +146,7 @@ Key rules for working with HeroLink:
 1. Always use the **draft → review → apply** workflow.
    - Create drafts with create_*_draft tools (no files changed).
    - Review pending changes with list_pending_changes and diff_pending_changes.
-   - Apply with apply_patch only when ready.
+   - Apply with apply_patch using confirm:true and the revision from diff_pending_changes as expectedRevision.
 2. Never apply changes without showing a diff first.
 3. Run validate_project_refs before applying to catch issues.
 4. Prefer small, safe changes over large batches.
@@ -179,7 +183,7 @@ Key rules for working with HeroLink:
           <details><summary style="cursor:pointer;font-weight:600;">Permission issues on Windows</summary>
             <p style="margin:4px 0 0 16px;">On Windows, use <code>npx.cmd</code> if <code>npx</code> fails. Make sure Node.js is installed and available in your PATH.</p></details>
           <details><summary style="cursor:pointer;font-weight:600;">inspect_runtime and preview_entity tools don't work</summary>
-            <p style="margin:4px 0 0 16px;">These tools require the optional <code>BridgeInspector.js</code> plugin to be installed in your RPG Maker project and running in-game. Copy the plugin from HeroLink's <code>src/plugin/BridgeInspector.js</code> to your project's <code>js/plugins/</code> folder, add it to your plugin list, and start the game. All other tools work without it.</p></details>
+            <p style="margin:4px 0 0 16px;">These tools require the optional <code>BridgeInspector.js</code> plugin to be installed in your RPG Maker project and running in-game. Use Documentation to stage the inspector installation, review and apply the draft, then start the game. All other tools work without it.</p></details>
           <details><summary style="cursor:pointer;font-weight:600;margin-top:8px;">Can I run the HTTP server (GUI) and MCP server at the same time?</summary>
             <p style="margin:4px 0 0 16px;">Yes — the HTTP server and MCP server are independent. The GUI uses HTTP, while your AI uses MCP. They can both access the same project simultaneously.</p></details>
         </div>
@@ -218,7 +222,9 @@ npx tsx src/index.ts</pre>
     if (pre) {
       navigator.clipboard.writeText(pre.textContent).catch(() => {});
       btn.textContent = "Copied!";
-      setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+      setTimeout(() => {
+        btn.textContent = "Copy";
+      }, 2000);
     }
   },
 };

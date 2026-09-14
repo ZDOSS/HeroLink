@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NotFoundError } from "../errors.js";
 import type { Project } from "../io/project.js";
 import type { Staging } from "../mutate/staging.js";
 import { ConstrainedCommandSchema, compileCommandList } from "../schema/commands.js";
@@ -66,11 +67,12 @@ export const CreateMapEventDraftOutput = z.object({
 export function createMapEventDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof CreateMapEventDraftInput>,
+  rawInput: z.infer<typeof CreateMapEventDraftInput>,
 ) {
+  const input = CreateMapEventDraftInput.parse(rawInput);
   const map = project.model.maps.get(input.mapId);
   if (!map) {
-    throw new Error(`Map ${input.mapId} not found`);
+    throw new NotFoundError(`Map ${input.mapId} not found`);
   }
 
   const pages = input.pages.map((page) => ({

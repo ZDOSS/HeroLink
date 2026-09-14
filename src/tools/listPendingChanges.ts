@@ -19,13 +19,13 @@ export function listPendingChanges(_project: unknown, staging: Staging) {
     let summary: string;
     switch (d.type) {
       case "create":
-        summary = `Create ${d.entityType}: ${(d.fields as Record<string, unknown>).name ?? "(unnamed)"}`;
+        summary = `Create ${d.entityType}: ${(d.fields as Record<string, unknown>).name || "(unnamed)"}`;
         break;
       case "update":
         summary = `Update ${d.entityType}:${d.entityId}`;
         break;
       case "createMapEvent":
-        summary = `Create map event on map ${d.mapId}: ${(d.event as Record<string, unknown>).name ?? "(unnamed)"}`;
+        summary = `Create map event on map ${d.mapId}: ${(d.event as Record<string, unknown>).name || "(unnamed)"}`;
         break;
       case "updateMapEvent":
         summary = `Update map event ${d.eventId} on map ${d.mapId}`;

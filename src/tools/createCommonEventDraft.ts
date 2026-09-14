@@ -25,8 +25,9 @@ export const CreateCommonEventDraftOutput = z.object({
 export function createCommonEventDraft(
   project: Project,
   staging: Staging,
-  input: z.infer<typeof CreateCommonEventDraftInput>,
+  rawInput: z.infer<typeof CreateCommonEventDraftInput>,
 ) {
+  const input = CreateCommonEventDraftInput.parse(rawInput);
   const eventCommands = compileCommandList(input.commands);
 
   const fields = {

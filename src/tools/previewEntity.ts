@@ -14,7 +14,7 @@ export const PreviewEntityInput = z.object({
   /**
    * Timeout in milliseconds when waiting for plugin response.
    */
-  timeoutMs: z.number().int().positive().default(5000),
+  timeoutMs: z.number().int().positive().max(60000).default(5000),
 });
 
 export const PreviewEntityOutput = z.object({
@@ -77,7 +77,7 @@ export async function previewEntity(project: Project, input: z.infer<typeof Prev
   const command = input.type === "Item" ? "PREVIEW_ITEM" : "PREVIEW_SKILL";
   const argKey = input.type === "Item" ? "itemId" : "skillId";
 
-  const commandId = channel.sendCommand(command, { [argKey]: input.id });
+  const commandId = channel.sendCommand(command, { [argKey]: input.id }, input.timeoutMs);
   const response = await channel.waitForResponse(commandId, input.timeoutMs);
 
   if (!response) {

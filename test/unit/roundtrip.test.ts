@@ -1,9 +1,16 @@
+import { isolatedFixture } from "../helpers/isolatedFixture.js";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadProject } from "../../src/io/project.js";
+import { buildNormalizedModel } from "../../src/model/normalized.js";
+import { MvAdapter } from "../../src/engine/mv.js";
+import { MzAdapter } from "../../src/engine/mz.js";
+const loadProject = (dir: string) => {
+  const adapter = dir.includes("mz-sample") ? new MzAdapter() : new MvAdapter();
+  return { adapter, model: buildNormalizedModel(dir, adapter) };
+};
 
-const SAMPLE_DIR = join(process.cwd(), "test", "fixtures", "sample-project");
+const SAMPLE_DIR = isolatedFixture("sample-project");
 
 describe("round-trip / idempotence", () => {
   it("loading project produces correct entity counts", () => {

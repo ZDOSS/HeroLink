@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NotFoundError } from "../errors.js";
 import type { Project } from "../io/project.js";
 import type { Staging } from "../mutate/staging.js";
 
@@ -26,7 +27,7 @@ export function setPluginParamDraft(
 ) {
   const plugin = project.model.plugins.find((p) => p.name === input.pluginName);
   if (!plugin) {
-    throw new Error(`Plugin "${input.pluginName}" not found`);
+    throw new NotFoundError(`Plugin "${input.pluginName}" not found`);
   }
 
   const changeId = staging.addSetPluginParams(input.pluginName, input.params);

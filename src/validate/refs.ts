@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { RefIssue } from "../errors.js";
 import type { EntityType, NormalizedModel } from "../model/normalized.js";
 
@@ -171,47 +169,48 @@ const ENTITY_FILES: Record<string, string> = {
   Troop: "Troops.json",
   State: "States.json",
   CommonEvent: "CommonEvents.json",
+  Animation: "Animations.json",
+  Tileset: "Tilesets.json",
+  MapInfo: "MapInfos.json",
 };
 
 function validateArrayInvariants(model: NormalizedModel, issues: RefIssue[]) {
-  for (const type of model.getEntityTypes()) {
-    const file = ENTITY_FILES[type];
-    if (!file) continue;
-
-    try {
-      const filePath = join(model.projectDir, "data", file);
-      const content = readFileSync(filePath, "utf-8");
-      const data = JSON.parse(content) as Array<Record<string, unknown> | null>;
-
-      const ids = new Set<number>();
-      for (let i = 1; i < data.length; i++) {
-        const record = data[i];
-        if (!record) continue;
-
-        const id = record.id as number;
-        if (typeof id !== "number") continue;
-
-        if (id !== i) {
-          issues.push({
-            severity: "error",
-            location: `${type}:${i}`,
-            message: `id ${id} does not match array index ${i}`,
-            refKind: "idIndexMismatch",
-          });
-        }
-
-        if (ids.has(id)) {
-          issues.push({
-            severity: "error",
-            location: `${type}:${id}`,
-            message: `Duplicate id ${id} in ${type}`,
-            refKind: "duplicateId",
-          });
-        }
-        ids.add(id);
-      }
-    } catch {
-      // File might not exist
+  const arrays = [
+    ...Object.entries(ENTITY_FILES).map(
+      ([type, file]) => [type, model.documents.get(file)] as const,
+    ),
+    ...[...model.maps].map(([id, map]) => [`Map:${id}:Event`, map.events] as const),
+  ];
+  for (const [type, value] of arrays) {
+    if (!Array.isArray(value)) continue;
+    const data = value as Array<Record<string, unknown> | null>;
+    if (data[0] !== null)
+      issues.push({
+        severity: "error",
+        location: `${type}:0`,
+        message: "Index zero must be null",
+        refKind: "idIndexMismatch",
+      });
+    const ids = new Set<number>();
+    for (let i = 1; i < data.length; i++) {
+      const record = data[i];
+      if (!record || typeof record.id !== "number") continue;
+      const id = record.id;
+      if (id !== i)
+        issues.push({
+          severity: "error",
+          location: `${type}:${i}`,
+          message: `id ${id} does not match array index ${i}`,
+          refKind: "idIndexMismatch",
+        });
+      if (ids.has(id))
+        issues.push({
+          severity: "error",
+          location: `${type}:${id}`,
+          message: `Duplicate id ${id} in ${type}`,
+          refKind: "duplicateId",
+        });
+      ids.add(id);
     }
   }
 }
@@ -255,7 +254,7 @@ function validatePluginParams(model: NormalizedModel, issues: RefIssue[]) {
     for (const [key, value] of Object.entries(plugin.parameters)) {
       if (typeof value !== "string") {
         issues.push({
-          severity: "warn",
+          severity: "error",
           location: `Plugin:${plugin.name}`,
           message: `Parameter "${key}" is not a string (got ${typeof value})`,
           refKind: "pluginParamType",

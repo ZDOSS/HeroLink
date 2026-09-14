@@ -16,22 +16,10 @@ const BridgeAPI = {
 
   async callTool(toolName, payload = {}) {
     try {
-      const res = await fetch(`${this.baseUrl()}/api/tools/${toolName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(this._clean(payload)),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        return { success: false, error: `HTTP ${res.status}: ${text}` };
-      }
-      const data = await res.json();
-      if (data.isError) {
-        return { success: false, error: data.content?.[0]?.text || "Unknown error" };
-      }
-      // HTTP server wraps all tool results in {ok, result} — unwrap
-      const result = data.ok !== undefined ? data.result : data;
-      return { success: data.ok !== false, data: result };
+      const result = await window.heroLinkAPI.callTool(toolName, this._clean(payload));
+      return result.ok
+        ? { success: true, data: result.result }
+        : { success: false, error: result.error || "Tool request failed", code: result.code };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -45,12 +33,12 @@ const BridgeAPI = {
     return this.callTool("list_pending_changes");
   },
 
-  async getEntityList(type, query) {
-    return this.callTool("list_entities", { type, query: query || undefined });
+  async getEntityList(type, query, offset = 0, limit = 50) {
+    return this.callTool("list_entities", { type, query: query || undefined, offset, limit });
   },
 
-  async applyPendingChanges() {
-    return this.callTool("apply_patch", { confirm: true });
+  async applyPendingChanges(expectedRevision) {
+    return this.callTool("apply_patch", { confirm: true, expectedRevision });
   },
 
   async discardPendingChanges(changeIds) {
@@ -62,7 +50,7 @@ const BridgeAPI = {
   },
 
   async validateProject() {
-    return this.callTool("validate_project_refs");
+    return this.callTool("validate_project_refs", { includePending: true });
   },
 
   async getDiff() {

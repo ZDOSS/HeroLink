@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -98,14 +99,12 @@ describe("FileChannel", () => {
       expect(state).toEqual(mockState);
     });
 
-    it("returns null if file is invalid JSON", () => {
+    it("reports invalid runtime JSON", () => {
       const statePath = join(testDir, ".bridge", "runtime-state.json");
       mkdirSync(join(testDir, ".bridge"), { recursive: true });
       writeFileSync(statePath, "invalid json");
 
-      const state = channel.readRuntimeState();
-
-      expect(state).toBeNull();
+      expect(() => channel.readRuntimeState()).toThrow("I/O error");
     });
   });
 
@@ -117,7 +116,7 @@ describe("FileChannel", () => {
 
     it("reads responses from file", () => {
       const mockResponses = [
-        { id: "1", command: "INSPECT", success: true, result: {}, error: null },
+        { id: randomUUID(), command: "INSPECT", success: true, result: {}, error: null },
       ];
 
       const responsesPath = join(testDir, ".bridge", "responses.json");
@@ -133,7 +132,7 @@ describe("FileChannel", () => {
   describe("consumeResponses", () => {
     it("reads and clears responses", () => {
       const mockResponses = [
-        { id: "1", command: "INSPECT", success: true, result: {}, error: null },
+        { id: randomUUID(), command: "INSPECT", success: true, result: {}, error: null },
       ];
 
       const responsesPath = join(testDir, ".bridge", "responses.json");
@@ -155,7 +154,7 @@ describe("FileChannel", () => {
   });
 
   describe("clear", () => {
-    it("clears all channel files", () => {
+    it("clears shared queues while preserving plugin-owned runtime state", () => {
       const bridgeDir = join(testDir, ".bridge");
       mkdirSync(bridgeDir, { recursive: true });
 
@@ -167,7 +166,7 @@ describe("FileChannel", () => {
 
       expect(JSON.parse(readFileSync(join(bridgeDir, "commands.json"), "utf-8"))).toEqual([]);
       expect(JSON.parse(readFileSync(join(bridgeDir, "responses.json"), "utf-8"))).toEqual([]);
-      expect(readFileSync(join(bridgeDir, "runtime-state.json"), "utf-8")).toBe("null");
+      expect(readFileSync(join(bridgeDir, "runtime-state.json"), "utf-8")).toBe("{}");
     });
   });
 });

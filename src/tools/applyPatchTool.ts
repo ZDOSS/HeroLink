@@ -5,6 +5,7 @@ import type { Staging } from "../mutate/staging.js";
 
 export const ApplyPatchInput = z.object({
   confirm: z.literal(true),
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
 export const ApplyPatchOutput = z.object({
@@ -16,7 +17,8 @@ export const ApplyPatchOutput = z.object({
 export async function applyPatchTool(
   project: Project,
   staging: Staging,
-  _input: z.infer<typeof ApplyPatchInput>,
+  rawInput: z.infer<typeof ApplyPatchInput>,
 ) {
-  return applyPatch(project, staging);
+  const input = ApplyPatchInput.parse(rawInput);
+  return applyPatch(project, staging, input.expectedRevision);
 }

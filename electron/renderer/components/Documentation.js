@@ -47,7 +47,7 @@ const Documentation = {
         <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;">
           <p style="margin:0 0 8px;">Enables <strong>inspect_runtime</strong> and <strong>preview_entity</strong> tools for in-game inspection. Requires the BridgeInspector plugin in your RPG Maker project.</p>
           <p style="margin:0 0 8px;">Install it with one click:</p>
-          <button class="btn btn-primary btn-sm" onclick="Documentation.installInspector()" id="btn-install-inspector">Install BridgeInspector to Project</button>
+          <button class="btn btn-primary btn-sm" onclick="Documentation.installInspector()" id="btn-install-inspector">Stage BridgeInspector Installation</button>
           <span id="install-inspector-status" style="margin-left:8px;font-size:11px;"></span>
         </div>
       </div>
@@ -58,20 +58,23 @@ const Documentation = {
         <p style="font-size:12px;color:var(--text-secondary);margin:0 0 8px;"><strong>HTTP</strong> (port ${HeroLinkState.get("config").port || 8866})</p>
         <div class="code-block">
           <button class="copy-btn" onclick="Documentation.copyCode(this)">Copy</button>
-          <pre># Get project status
-curl http://127.0.0.1:${HeroLinkState.get("config").port || 8866}/api/tools/get_project_status
+          <pre># Standalone HTTP service (desktop requests use private IPC)
+# Get project status
+curl -X POST http://127.0.0.1:8866/api/tools/get_project_status \
+  -H "Content-Type: application/json" -d '{}'
 
-# Create an item draft
-curl -X POST http://127.0.0.1:${HeroLinkState.get("config").port || 8866}/api/tools/create_item_draft \
+# Inspect an existing entity and copy ALL fields except id for creation.
+# Use get_entity with {"type":"Item","id":YOUR_ITEM_ID}.
+# Send complete fields to create_item_draft; partial creates are rejected.
+
+# Review pending bytes and their revision
+curl -X POST http://127.0.0.1:8866/api/tools/diff_pending_changes \
+  -H "Content-Type: application/json" -d '{}'
+
+# Apply exactly the revision returned by that review
+curl -X POST http://127.0.0.1:8866/api/tools/apply_patch \
   -H "Content-Type: application/json" \
-  -d '{"fields": {"name": "Hi-Potion", "itypeId": 1}}'
-
-# View pending changes
-curl http://127.0.0.1:${HeroLinkState.get("config").port || 8866}/api/tools/list_pending_changes
-
-# Apply changes
-curl -X POST http://127.0.0.1:${HeroLinkState.get("config").port || 8866}/api/tools/apply_patch \
-  -H "Content-Type: application/json" -d '{"confirm": true}'</pre>
+  -d '{"confirm":true,"expectedRevision":"REVIEWED_REVISION"}'</pre>
         </div>
 
         <p style="font-size:12px;color:var(--text-secondary);margin:12px 0 8px;"><strong>MCP</strong> (for AI clients like Claude Code, Cursor)</p>
@@ -105,7 +108,9 @@ npx tsx src/cli.ts rollback path/to/project</pre>
     if (pre) {
       navigator.clipboard.writeText(pre.textContent).catch(() => {});
       btn.textContent = "Copied!";
-      setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+      setTimeout(() => {
+        btn.textContent = "Copy";
+      }, 2000);
     }
   },
 
@@ -113,13 +118,14 @@ npx tsx src/cli.ts rollback path/to/project</pre>
     const statusEl = document.getElementById("install-inspector-status");
     const btn = document.getElementById("btn-install-inspector");
     if (btn) btn.disabled = true;
-    if (statusEl) statusEl.textContent = "Installing...";
+    if (statusEl) statusEl.textContent = "Creating installation draft...";
 
     const result = await window.heroLinkAPI.installInspector();
 
     if (result.ok) {
+      await App.refreshPendingCount();
       if (statusEl) {
-        statusEl.textContent = "Installed to js/plugins/BridgeInspector.js";
+        statusEl.textContent = "Installation drafted. Review and apply it in Pending Changes.";
         statusEl.style.color = "var(--success)";
       }
     } else {

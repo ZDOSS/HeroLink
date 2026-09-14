@@ -3,23 +3,36 @@ import { z } from "zod";
 import { type PluginEntry, readPluginsJs, serializePluginsJs } from "../io/pluginsJs.js";
 import type { EngineAdapter, WritePlan } from "./adapter.js";
 
-// MZ uses Effekseer-based animation format instead of MV's sprite frames
-const MzAnimationSchema = z
-  .object({
-    id: z.number().int(),
-    name: z.string(),
-    animation1Name: z.string(),
-    animation1Hue: z.number().int(),
-    animation2Name: z.string(),
-    animation2Hue: z.number().int(),
-    position: z.number().int(),
-    effectName: z.string(),
-    effekseerFlags: z.number().int(),
-    frames: z.array(z.array(z.array(z.number().int()))),
-    timings: z.array(z.unknown()),
-    note: z.string(),
-  })
-  .passthrough();
+import { AudioSchema } from "../schema/entities.js";
+import { MvAnimationSchema } from "./mv.js";
+
+// Current MZ exports use Effekseer; imported MV sprite animations remain valid.
+// Field shapes are checked against pinned editor exports and the official MZ
+// database reference. Never infer effect data from an MV sprite animation.
+export const MzAnimationSchema = z.union([
+  z
+    .object({
+      id: z.number().int().positive(),
+      name: z.string(),
+      displayType: z.number().int(),
+      effectName: z.string(),
+      offsetX: z.number(),
+      offsetY: z.number(),
+      rotation: z.object({ x: z.number(), y: z.number(), z: z.number() }),
+      scale: z.number(),
+      speed: z.number(),
+      soundTimings: z.array(z.object({ frame: z.number().int(), se: AudioSchema })),
+      flashTimings: z.array(
+        z.object({
+          frame: z.number().int(),
+          duration: z.number().int(),
+          color: z.array(z.number()).length(4),
+        }),
+      ),
+    })
+    .passthrough(),
+  MvAnimationSchema,
+]);
 
 export class MzAdapter implements EngineAdapter {
   readonly id = "mz" as const;

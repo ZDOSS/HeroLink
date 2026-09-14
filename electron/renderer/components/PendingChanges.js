@@ -1,7 +1,10 @@
 const PendingChanges = {
   async render() {
     const result = await BridgeAPI.getPendingChanges();
-    const changes = result.success ? (result.data.changes || []) : [];
+    App.setPendingResult(result);
+    if (!result.success)
+      return `<h2>Pending Changes</h2><div role="alert" class="card"><p>Could not load pending changes: ${this.escapeHtml(result.error)}</p><button class="btn btn-primary" onclick="App.renderView('pending')">Retry</button></div>`;
+    const changes = result.data.changes || [];
 
     if (changes.length === 0) {
       return `
@@ -16,7 +19,8 @@ const PendingChanges = {
 
     const rows = changes
       .map((c, i) => {
-        const actionLabel = c.type === "create" ? "Create" : c.type === "update" ? "Update" : c.type;
+        const actionLabel =
+          c.type === "create" ? "Create" : c.type === "update" ? "Update" : c.type;
         return `
           <div class="table-row" style="justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:12px;">
@@ -54,7 +58,16 @@ const PendingChanges = {
   },
 
   async discardOne(changeId) {
-    await BridgeAPI.discardPendingChanges([changeId]);
+    const result = await BridgeAPI.discardPendingChanges([changeId]);
+    if (!result.success) {
+      Modal.show({
+        title: "Discard failed",
+        body: this.escapeHtml(result.error),
+        confirmText: "OK",
+        cancelText: false,
+      });
+      return;
+    }
     await App.refreshPendingCount();
     App.renderView("pending");
   },
@@ -67,7 +80,8 @@ const PendingChanges = {
       cancelText: "Cancel",
       variant: "danger",
       onConfirm: async () => {
-        await BridgeAPI.discardPendingChanges();
+        const result = await BridgeAPI.discardPendingChanges();
+        if (!result.success) throw new Error(result.error);
         await App.refreshPendingCount();
         App.renderView("pending");
       },
@@ -75,62 +89,99 @@ const PendingChanges = {
   },
 
   async confirmApply() {
-    const config = HeroLinkState.get("config");
-    if (config.confirmBeforeApply) {
+    const review = await BridgeAPI.getDiff();
+    if (!review.success) {
       Modal.show({
-        title: "Apply All Changes",
-        body: `
-          <p style="margin:0 0 12px;">This will <strong>permanently modify files</strong> in your RPG Maker project.</p>
-          <p style="margin:0 0 12px;">A backup will be created automatically before writing.</p>
-          <p style="margin:0;font-size:12px;color:var(--warning);">⚠️ This action cannot be undone via the UI — use rollback from the API if needed.</p>
-        `,
-        confirmText: "Apply Changes",
-        cancelText: "Cancel",
-        variant: "success",
-        onConfirm: async () => {
-          const result = await BridgeAPI.applyPendingChanges();
-          if (result.success) {
-            await App.refreshPendingCount();
-            App.renderView("pending");
-            Modal.show({
-              title: "Changes Applied",
-              body: `<p>Transaction ID: ${this.escapeHtml(String(result.data.transactionId ?? ""))}<br>Files written: ${this.escapeHtml((result.data.filesWritten || []).join(", "))}</p>`,
-              confirmText: "OK",
-            });
-          } else {
-            Modal.show({
-              title: "Apply Failed",
-              body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
-              confirmText: "OK",
-            });
-          }
-        },
+        title: "Review failed",
+        body: this.escapeHtml(review.error),
+        confirmText: "Close",
+        cancelText: false,
       });
-    } else {
-      const result = await BridgeAPI.applyPendingChanges();
-      if (result.success) {
-        await App.refreshPendingCount();
-      } else {
-        Modal.show({ title: "Apply Failed", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
-      }
-      App.renderView("pending");
+      return;
     }
+    const diff = review.data;
+    Modal.show({
+      title: "Review changes before applying",
+      body: this.reviewHtml(diff),
+      confirmText: diff.validation.ok ? "Apply reviewed changes" : false,
+      cancelText: "Close",
+      onConfirm: async () => {
+        const result = await BridgeAPI.applyPendingChanges(diff.revision);
+        if (!result.success) throw new Error(result.error);
+        await App.refreshProjectSummary();
+        await App.refreshPendingCount();
+        await App.renderView("pending");
+        Modal.show({
+          title: "Changes applied",
+          body: `<p>Transaction ${this.escapeHtml(result.data.transactionId)}. You can restore it from Backups.</p>`,
+          confirmText: "OK",
+          cancelText: false,
+        });
+      },
+    });
+  },
+
+  formatFile(content, absent) {
+    if (content === null) return absent;
+    try {
+      return JSON.stringify(JSON.parse(content), null, 2);
+    } catch {
+      return content;
+    }
+  },
+  changedFields(diff, file) {
+    const patch = (diff.patches || []).find(
+      (p) => p.kind === "jsonPatch" && `data/${p.file}` === file.file,
+    );
+    if (!patch) return "";
+    const before = file.before === null ? null : JSON.parse(file.before);
+    const after = file.after === null ? null : JSON.parse(file.after);
+    const at = (document, pointer) =>
+      pointer
+        .slice(1)
+        .split("/")
+        .map((key) => key.replace(/~1/g, "/").replace(/~0/g, "~"))
+        .reduce((value, key) => value?.[key], document);
+    const display = (value) =>
+      this.escapeHtml(value === undefined ? "(not present)" : JSON.stringify(value, null, 2));
+    return `<table class="changed-fields"><caption>Changed fields</caption><thead><tr><th>Path</th><th>Before</th><th>After</th></tr></thead><tbody>${patch.ops.map((op) => `<tr><td>${this.escapeHtml(op.path)}</td><td><pre>${display(at(before, op.path))}</pre></td><td><pre>${display(at(after, op.path))}</pre></td></tr>`).join("")}</tbody></table>`;
+  },
+  reviewHtml(diff) {
+    const issues = diff.validation.issues
+      .map(
+        (issue) => `<li>${this.escapeHtml(issue.location)}: ${this.escapeHtml(issue.message)}</li>`,
+      )
+      .join("");
+    return (
+      `<p>${this.escapeHtml(diff.humanSummary)}</p><p>${diff.validation.ok ? "Validation passed. A backup will be created before writing." : "Resolve the validation errors before applying."}</p>${issues ? `<ul>${issues}</ul>` : ""}` +
+      diff.files
+        .map(
+          (file) =>
+            `<details open><summary>${this.escapeHtml(file.file)}</summary>${this.changedFields(diff, file)}<div class="diff-columns"><div><h4>Before</h4><pre class="code-block">${this.escapeHtml(this.formatFile(file.before, "File does not exist"))}</pre></div><div><h4>After</h4><pre class="code-block">${this.escapeHtml(this.formatFile(file.after, "File removed"))}</pre></div></div></details>`,
+        )
+        .join("")
+    );
   },
 
   async showDiff() {
     const result = await BridgeAPI.getDiff();
     if (!result.success) {
-      Modal.show({ title: "Diff", body: `<p>Could not load diff: ${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+      Modal.show({
+        title: "Diff",
+        body: `<p>Could not load diff: ${this.escapeHtml(result.error)}</p>`,
+        confirmText: "OK",
+      });
       return;
     }
-    const content = result.data.humanSummary
-      ? `<pre class="code-block">${this.escapeHtml(JSON.stringify(result.data, null, 2))}</pre>`
-      : "<p>No diff available.</p>";
-    Modal.show({ title: "Full Diff", body: content, confirmText: "Close" });
+    Modal.show({
+      title: "Full diff",
+      body: this.reviewHtml(result.data),
+      confirmText: "Close",
+      cancelText: false,
+    });
   },
 
   escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return App.escapeHtml(str);
   },
 };

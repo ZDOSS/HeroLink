@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
@@ -11,7 +11,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
-    "lint:fix": "biome check --apply src/",
+    "lint:fix": "biome check --write src/",
     "format": "biome format --write src/",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,7 +19,11 @@
     "check": "npm run lint && npm run typecheck && npm run test:coverage",
     "generate-fixtures": "tsx scripts/generate-fixtures.ts",
     "http": "tsx src/http/server.ts",
-    "electron": "electron electron/main.cjs"
+    "electron": "electron electron/main.cjs",
+    "fixtures:engine": "node scripts/fetch-engine-fixtures.mjs",
+    "pretest": "npm run fixtures:engine",
+    "pretest:coverage": "npm run fixtures:engine",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -33,13 +37,16 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.0.0",
     "@types/write-file-atomic": "^4.0.3",
-    "@vitest/coverage-v8": "^2.1.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "axe-core": "^4.11.1",
     "electron": "^42.3.3",
     "fast-check": "^3.22.0",
+    "happy-dom": "^20.14.5",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.11"
   }
 }

@@ -1,6 +1,11 @@
 const App = {
   escapeHtml(str) {
-    return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   },
 
   async init() {
@@ -92,18 +97,36 @@ const App = {
         main.innerHTML = await Dashboard.render();
     }
 
+    document.querySelectorAll("#main-content label:not([for])").forEach((label) => {
+      const control = label.parentElement.querySelector("input,select,textarea");
+      if (control?.id) label.htmlFor = control.id;
+    });
     App.updateSidebar();
   },
 
   async refreshProjectSummary() {
-    const result = await BridgeAPI.listProjectData();
+    const [data, status] = await Promise.all([
+      BridgeAPI.listProjectData(),
+      BridgeAPI.getProjectStatus(),
+    ]);
+    const result =
+      data.success && status.success
+        ? { success: true, data: { ...status.data, ...data.data } }
+        : !data.success
+          ? data
+          : status;
     HeroLinkState.set("projectSummary", result);
   },
 
   async refreshPendingCount() {
     const result = await BridgeAPI.getPendingChanges();
-    const count = result.success ? (result.data.changes || []).length : 0;
-    HeroLinkState.set("pendingChangesCount", count);
+    App.setPendingResult(result);
+  },
+
+  setPendingResult(result) {
+    HeroLinkState.set("pendingCountStale", !result.success);
+    if (result.success)
+      HeroLinkState.set("pendingChangesCount", (result.data.changes || []).length);
     App.updateSidebar();
   },
 
@@ -113,14 +136,19 @@ const App = {
     await window.heroLinkAPI.setConfig({ projectPath: folder });
     HeroLinkState.set("config", await window.heroLinkAPI.getConfig());
     App.updateHeader();
-    await App.refreshProjectSummary();
-    await App.renderView(HeroLinkState.get("currentView"));
     const result = await window.heroLinkAPI.restartServer();
     if (result.ok) {
       HeroLinkState.set("serverStatus", { ...HeroLinkState.get("serverStatus"), running: true });
+      await App.refreshProjectSummary();
+      await App.refreshPendingCount();
+      await App.renderView(HeroLinkState.get("currentView"));
       App.updateHeader();
     } else if (result && result.error) {
-      Modal.show({ title: "Server Error", body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`, confirmText: "OK" });
+      Modal.show({
+        title: "Server Error",
+        body: `<p style="color:var(--danger);">${this.escapeHtml(result.error)}</p>`,
+        confirmText: "OK",
+      });
     }
   },
 
@@ -130,9 +158,10 @@ const App = {
       const issues = result.data.issues || [];
       Modal.show({
         title: "Validation Results",
-        body: issues.length === 0
-          ? "<p style='color:var(--success);'>✅ No issues found. Project is clean.</p>"
-          : `<pre style="max-height:400px;overflow-y:auto;font-size:12px;">${this.escapeHtml(JSON.stringify(issues, null, 2))}</pre>`,
+        body:
+          issues.length === 0
+            ? "<p style='color:var(--success);'>✅ No issues found. Project is clean.</p>"
+            : `<pre style="max-height:400px;overflow-y:auto;font-size:12px;">${this.escapeHtml(JSON.stringify(issues, null, 2))}</pre>`,
         confirmText: "OK",
       });
     } else {
@@ -155,4 +184,9 @@ const App = {
   },
 };
 
-document.addEventListener("DOMContentLoaded", () => App.init());
+document.addEventListener("DOMContentLoaded", () =>
+  App.init().catch((error) => {
+    document.getElementById("main-content").textContent =
+      `Could not start HeroLink: ${error.message}`;
+  }),
+);

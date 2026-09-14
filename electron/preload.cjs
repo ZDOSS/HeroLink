@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("heroLinkAPI", {
+  callTool: (name, payload) => ipcRenderer.invoke("call-tool", name, payload),
   rendererReady: () => ipcRenderer.invoke("renderer-ready"),
   selectProjectFolder: () => ipcRenderer.invoke("select-project-folder"),
   getConfig: () => ipcRenderer.invoke("get-config"),

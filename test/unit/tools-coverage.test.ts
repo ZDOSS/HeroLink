@@ -1,3 +1,5 @@
+import { isolatedFixture } from "../helpers/isolatedFixture.js";
+import { createItemDraft } from "../../src/tools/createItemDraft.js";
 import { describe, it, expect } from "vitest";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -25,7 +27,7 @@ import {
   ConflictError,
 } from "../../src/errors.js";
 
-const SAMPLE_DIR = join(process.cwd(), "test", "fixtures", "sample-project");
+const SAMPLE_DIR = isolatedFixture("sample-project");
 
 describe("listPendingChanges — all draft types", () => {
   it("returns empty list when no drafts exist", () => {
@@ -37,7 +39,8 @@ describe("listPendingChanges — all draft types", () => {
   it("reports create drafts", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      createEntityDraft(project, project.staging, { type: "Item", fields: { name: "TestItem" } });
+      const { id, ...fields } = project.model.listEntities("Item")[0];
+      createItemDraft(project, project.staging, { fields: { ...fields, name: "TestItem" } });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes).toHaveLength(1);
       expect(result.changes[0].type).toBe("create");
@@ -48,7 +51,11 @@ describe("listPendingChanges — all draft types", () => {
   it("reports update drafts", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      updateEntityDraft(project, project.staging, { type: "Item", id: 1, patch: { name: "Updated" } });
+      updateEntityDraft(project, project.staging, {
+        type: "Item",
+        id: 1,
+        patch: { name: "Updated" },
+      });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes).toHaveLength(1);
       expect(result.changes[0].type).toBe("update");
@@ -59,7 +66,13 @@ describe("listPendingChanges — all draft types", () => {
   it("reports createMapEvent drafts", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      createMapEventDraft(project, project.staging, { mapId: 1, name: "NewEvent", x: 5, y: 5, pages: [] });
+      createMapEventDraft(project, project.staging, {
+        mapId: 1,
+        name: "NewEvent",
+        x: 5,
+        y: 5,
+        pages: [{ commands: [{ type: "showText", lines: ["Fixture text"] }] }],
+      });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes).toHaveLength(1);
       expect(result.changes[0].type).toBe("createMapEvent");
@@ -70,7 +83,11 @@ describe("listPendingChanges — all draft types", () => {
   it("reports updateMapEvent drafts", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      updateMapEventDraft(project, project.staging, { mapId: 1, eventId: 1, patch: { name: "Changed" } });
+      updateMapEventDraft(project, project.staging, {
+        mapId: 1,
+        eventId: 1,
+        patch: { name: "Changed" },
+      });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes).toHaveLength(1);
       expect(result.changes[0].type).toBe("updateMapEvent");
@@ -81,7 +98,10 @@ describe("listPendingChanges — all draft types", () => {
   it("reports setPluginParams drafts", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      setPluginParamDraft(project, project.staging, { pluginName: "SamplePlugin", params: { key: "val" } });
+      setPluginParamDraft(project, project.staging, {
+        pluginName: "SamplePlugin",
+        params: { key: "val" },
+      });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes).toHaveLength(1);
       expect(result.changes[0].type).toBe("setPluginParams");
@@ -92,7 +112,11 @@ describe("listPendingChanges — all draft types", () => {
   it("reports addPlugin drafts", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      addPluginDraft(project, project.staging, { name: "MyPlugin", source: "/* code */", params: {} });
+      addPluginDraft(project, project.staging, {
+        name: "MyPlugin",
+        source: "/* code */",
+        params: {},
+      });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes).toHaveLength(1);
       expect(result.changes[0].type).toBe("addPlugin");
@@ -103,7 +127,8 @@ describe("listPendingChanges — all draft types", () => {
   it("reports unnamed create draft correctly", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
-      createEntityDraft(project, project.staging, { type: "Item", fields: {} });
+      const { id, ...fields } = project.model.listEntities("Item")[0];
+      createItemDraft(project, project.staging, { fields: { ...fields, name: "" } });
       const result = listPendingChanges(project, project.staging);
       expect(result.changes[0].summary).toContain("unnamed");
     });
@@ -115,7 +140,11 @@ describe("updateEntityDraft — not found path", () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
       expect(() =>
-        updateEntityDraft(project, project.staging, { type: "Item", id: 9999, patch: { name: "Nope" } }),
+        updateEntityDraft(project, project.staging, {
+          type: "Item",
+          id: 9999,
+          patch: { name: "Nope" },
+        }),
       ).toThrow("Item with id 9999 not found");
     });
   });
@@ -219,7 +248,11 @@ const stagingCleanups: string[] = [];
 
 afterEach(() => {
   for (const dir of stagingCleanups) {
-    try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   }
   stagingCleanups.length = 0;
 });
@@ -253,8 +286,13 @@ describe("createSkillDraft", () => {
   it("creates a skill draft with correct ID", async () => {
     await withTempProject("sample-project", async (projectDir) => {
       const project = loadProject(projectDir);
+      const { id, ...fields } = project.model.listEntities("Skill")[0];
       const result = createSkillDraft(project, project.staging, {
-        fields: { name: "Fireball", damage: { type: 1, elementId: 1, formula: "a.mat * 4", variance: 20, critical: false } },
+        fields: {
+          ...fields,
+          name: "Fireball",
+          damage: { type: 1, elementId: 1, formula: "a.mat * 4", variance: 20, critical: false },
+        },
       });
       expect(result.changeId).toBeDefined();
       expect(result.preview.entityType).toBe("Skill");
